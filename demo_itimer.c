@@ -21,7 +21,7 @@ void timer_handler(int sig)
 int main(void) {
 	struct sigaction sa;
 	struct itimerval timer;
-
+	int sec = 0;
 	// Install timer_handler as the signal handler for SIGVTALRM.
 	sa.sa_handler = &timer_handler;
 	if (sigaction(SIGVTALRM, &sa,NULL) < 0) {
@@ -29,11 +29,11 @@ int main(void) {
 	}
 
 	// Configure the timer to expire after 1 sec... */
-	timer.it_value.tv_sec = 1;		// first time interval, seconds part
+	timer.it_value.tv_sec = 5;		// first time interval, seconds part
 	timer.it_value.tv_usec = 0;		// first time interval, microseconds part
 
 	// configure the timer to expire every 3 sec after that.
-	timer.it_interval.tv_sec = 3;	// following time intervals, seconds part
+	timer.it_interval.tv_sec = 6;	// following time intervals, seconds part
 	timer.it_interval.tv_usec = 0;	// following time intervals, microseconds part
 
 	// Start a virtual timer. It counts down whenever this process is executing.
@@ -41,7 +41,9 @@ int main(void) {
 		printf("setitimer error.");
 	}
 
+	sec = timer.it_value.tv_sec;
 	for(;;) {
+
 		if (gotit) {
 			printf("Got it!\n");
 			gotit = 0;

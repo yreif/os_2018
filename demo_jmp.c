@@ -68,6 +68,7 @@ void switchThreads(void)
       return;
   }
   currentThread = 1 - currentThread;
+  printf("currentThread: %d\n", currentThread);
   siglongjmp(env[currentThread],1);
 }
 
