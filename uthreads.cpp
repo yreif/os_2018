@@ -5,57 +5,54 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+
 #define SECOND 1000000
 #define MAIN_THREAD_ID 0
+
 enum state {
     READY, RUNNING, BLOCKED
 };
 
 typedef struct unique_id {
-    // https://codereview.stackexchange.com/questions/173618/generate-a-unique-numeric-identifier-for-each-instance-of-a-class
-    // http://coliru.stacked-crooked.com/a/b531057532b3489d
+
 public:
 
-    static unsigned std::set<unsigned long> s_usedID;
+    static std::set<int> s_unUsedID;
 
-    static unsigned long generateID() // Generate a valid ID
+    static int generateID() // Generate a valid ID
     {
-        static unsigned long id = 0;
+        static int id = 0;
 
-        while (Foo::isIDUsed(id)) // If all ID are taken, create an infinite loop!
-            ++id;
+        if (s_unUsedID.begin() == s_unUsedID.end()) {
+            return error.
+        }
+        id = *s_unUsedID.begin();
+        s_unUsedID.erase(id);
 
         return id;
     }
 
-    static void addID(unsigned long id) // Add a given ID to the set of used ID
+    static void start_me(int id) // Add a given ID to the set of used ID
     {
-        s_usedID.insert(id);
+        for (int i = 1; i < MAIN_THREAD_ID + 1; ++i) {
+            s_unUsedID.insert(i);
+        }
     }
 
-    static void removeID(unsigned long id) // Remove a given ID from the set of used ID
+    static void removeID(int id) // Remove a given ID from the set of used ID
     {
-        s_usedID.erase(id);
+        s_unUsedID.insert(id);
     }
 
-    static bool isIDUsed(unsigned long id)
+    static bool isIDUsed(int id)
     {
-        return s_usedID.count(id) == 1 ? true:false;
+        if (id > MAX_THREAD_NUM)
+        {
+            return error.
+        }
+        return s_unUsedID.count(id) == 0;
     }
 
-    explicit Foo() : m_id(Foo::generateID())
-    {
-        Foo::addID(m_id); // ID is now taken
-    }
-
-    virtual ~Foo()
-    {
-        Foo::removeID(m_id); // Free the ID
-    }
-
-private:
-
-    unsigned long m_id;
 } unique_id;
 
 
