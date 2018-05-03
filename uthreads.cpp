@@ -1,4 +1,3 @@
-
 #include "uthreads.h"
 #include <stdio.h>
 #include <setjmp.h>
@@ -7,12 +6,10 @@
 #include <sys/time.h>
 
 #define SECOND 1000000
-#define STACK_SIZE 4096
 
-char stack1[STACK_SIZE];
-char stack2[STACK_SIZE];
-
-sigjmp_buf env[2];
+enum state {
+    READY, RUNNING, BLOCKED
+};
 
 #ifdef __x86_64__
 /* code for 64 bit Intel arch */
