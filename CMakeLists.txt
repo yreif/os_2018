@@ -3,5 +3,5 @@ project(os_ex2)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(SOURCE_FILES demo_singInt_handler.c)
-add_executable(os_ex2 ${SOURCE_FILES})
+set(SOURCE_FILES demo_jmp.c.cpp)
+add_executable(untitled1 ${SOURCE_FILES})
