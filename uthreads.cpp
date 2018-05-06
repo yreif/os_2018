@@ -105,6 +105,7 @@ public:
 
 #define SELF_SWITCH -30
 #define TERMINATE_SWITCH -40
+#define RUNNING_BLOCKED_SWITCH -50
 #define NO_THREAD -10
 
 /** uthread class */
@@ -128,8 +129,6 @@ public:
     }
 };
 
-
-
 void switchThreads(int status)
 {
     struct sigaction sa;
@@ -146,17 +145,22 @@ void switchThreads(int status)
         if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
             printf("sigaction error.");
         }
-        // initialize timer
+        /** initialize timer*/
         if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
             printf("setitimer error.");
         }
         return;
-    } // otherwise, thread not preempted:
-    // insert back into ready queue
+    } /** otherwise, thread not preempted:
+    ** insert back into ready queue*/
     if (status == SIGVTALRM) {
-        ready.push_back(runningIndex);
+        ready.push_back(current_thread);
     }
-    // update threads which were synced with running thread // LO MEVINIM
+
+    /**When a running thread blocked itself */
+    if (status == RUNNING_BLOCKED_SWITCH){
+
+    }
+    /** update threads which were synced with running thread // LO MEVINIM*/
     if (status != TERMINATE_SWITCH){
         for (int i : uthreads[current_thread]->syncedWith) {
             uthreads[i]->synced_t = NO_THREAD;
@@ -166,7 +170,7 @@ void switchThreads(int status)
             }
         }
     }
-    // remove those synced threads from blocked state
+    /** remove those synced threads from blocked state*/
     int j = 0;
     for (int i : blocked)
     {
@@ -195,9 +199,6 @@ void switchThreads(int status)
     siglongjmp(env[currentThread],1);
 }
 
-
-
-
 void system_error(char *text) {
     fprintf(std::stderr, "system error: %s\n", text);
     free_uthreads();
@@ -208,12 +209,38 @@ void uthreads_error(char *text) {
     fprintf(std::stderr, "thread library error: %s\n", text);
 }
 
+/**
+ * Description: This function creates a new thread, whose entry point is the
+ * function f with the signature void f(void). The thread is added to the end
+ * of the READY threads list. The uthread_spawn function should fail if it
+ * would cause the number of concurrent threads to exceed the limit
+ * (MAX_THREAD_NUM). Each thread should be allocated with a stack of size
+ * STACK_SIZE bytes.
+ * Return value: On success, return the ID of the created thread.
+ * On failure, return -1.
+ * @param f = function f with the signature void f(void)
+ * @return eturn the ID of the created thread.
+ * On failure, return -1.
+ */
+int uthread_spawn(void (*f)(void)){
+    int curr_id = unique_id.generateID();
+    if(curr_id == -1){
+        return curr_id;
+    }
+    uthread curr_thread = thread();
+    try {
+        curr_thread.*stack = new char[STACK_SIZE];
+    } catch (){
+        ~curr_thread();
+        return -1;
+    }
+    uthreads[curr_id] = curr_thread; // maybe & ??
+    ready.pushback(curr_id);
 
+    return curr_id;
+}
 
-
-
-
-/*
+/**
  * Description: This function terminates the thread with ID tid and deletes
  * it from all relevant control structures. All the resources allocated by
  * the library for this thread should be released. If no thread with ID tid
@@ -236,6 +263,31 @@ int uthread_terminate(int tid) {
     }
     // how to know if a thread terminates itself???
     to_terminate.terminate();
+}
+
+/**
+ * Description: This function blocks the thread with ID tid. The thread may
+ * be resumed later using uthread_resume. If no thread with ID tid exists it
+ * is considered as an error. In addition, it is an error to try blocking the
+ * main thread (tid == 0). If a thread blocks itself, a scheduling decision
+ * should be made. Blocking a thread in BLOCKED state has no
+ * effect and is not considered an error.
+ * Return value: On success, return 0. On failure, return -1.
+ * @param tid
+ * @return On success, return 0. On failure, return -1.
+ */
+int uthread_block(int tid){
+    if ((tid == MAIN_THREAD_ID) || (tid < 0) || (tid > MAX_THREAD_NUM) || (!unique_id.isIDUsed(tid))){
+        return -1;
+    } else if (current_thread == tid) {
+        scheduling decision;
+    } else {
+        that_thread = uthreads[tid];
+        that_thread.bloocked = true;
+        blocked.pushback(tid);
+        ready.erase(tid);
+    }
+
 }
 
 /*
