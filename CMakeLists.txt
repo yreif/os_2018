@@ -3,5 +3,5 @@ project(os_ex2)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(SOURCE_FILES demo_jmp.c.cpp)
+set(SOURCE_FILES demo_jmp.c)
 add_executable(untitled1 ${SOURCE_FILES})
