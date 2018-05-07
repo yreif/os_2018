@@ -33,7 +33,7 @@ address_t translate_address(address_t addr)
 #else
 /* code for 32 bit Intel arch */
 
-typedef unsigned int address_t;
+typedef unsigned int address_t;  // To UPDATE NAME??
 #define JB_SP 4
 #define JB_PC 5
 
@@ -54,7 +54,7 @@ enum state {
     READY, RUNNING, BLOCKED
 };
 std::deque<int> ready;
-std::deque<int> blocked;
+std::deque<int> blocked_by_sync;
 int current_thread;
 int total_quantums;
 
@@ -111,6 +111,7 @@ unique_id tids = unique_id(MAX_THREAD_NUM);
 #define SELF_SWITCH -30
 #define TERMINATE_SWITCH -40
 #define RUNNING_BLOCKED_SWITCH -50
+#define SYNCED_BLOCKED_SWITCH -60
 #define NO_THREAD -10
 
 /** uthread class */
@@ -124,7 +125,7 @@ public:
     int quantums;
     std::deque<int> sync_dependencies;     // thread ids waiting for this thread to run // UPDATE THIS
     int waiting_for;                   // current thread is waiting for synced_t to run // UPDATE THIS
-    bool blocked;
+    bool blocked_directly;
     char *stack;
     thread() {
         quantums = 0;
@@ -200,19 +201,38 @@ void switchThreads(int status) {
  * On failure, return -1.
  */
 int uthread_spawn(void (*f)(void)){
+
+    sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
+
     int curr_id = unique_id.generateID();
     if(curr_id == -1){
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        std::cerr << "Error\n" << std::endl;
         return curr_id;
     }
-    uthread* curr_thread = new thread();
+
     try {
-        curr_thread->stack = new char[STACK_SIZE];
-    } catch (){
-        ~curr_thread();
+        uthread* new_thread = new thread();
+        new_thread->stack = new char[STACK_SIZE];
+
+    } catch (std::bad_alloc){
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        std::cerr << "Error\n" << std::endl;
+        ~new_thread();
         return -1;
     }
+    address_t sp, pc;
+    sp = (address_t)stack + STACK_SIZE - sizeof(address_t);
+    pc = (address_t)func;
+
+
+
     uthreads[curr_id] = curr_thread;
     ready.pushback(curr_id);
+    sigprocmask(SIG_UNBLOCK, &sa, NULL);
+
 
     return curr_id;
 }
@@ -324,16 +344,14 @@ int uthread_block(int tid){
     } else if (current_thread == tid){
     /**If the current thread - the running one is blocking itself, a schedualing decision should be made */
 
-        current_thread->blocked = true;
-        blocked.pushback(tid);
+        current_thread->blocked_directly = true;
         sigprocmask(SIG_UNBLOCK, &sa, NULL);
         switchThreads(RUNNING_BLOCKED_SWITCH);
 
     } else if (!uthreads[tid]->blocked){
         that_thread = uthreads[tid];
-        that_thread->blocked = true;
-        blocked.pushback(tid);
-        ready.erase(std::remove(blocked.begin(), blocked.end(), tid), blocked.end());
+        that_thread->blocked_directly = true;
+        ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
         sigprocmask(SIG_UNBLOCK, &sa, NULL);
 
     }
@@ -355,7 +373,7 @@ int uthread_sync(int tid) {
     sigprocmask(SIG_BLOCK, &sa, NULL);
 
     /**If the ID is invalid , Or if it belonges to the running thread - then not logical*/
-    if (unique_id.is_id_valid(tid) || tid == MAIN_THREAD_ID || tid == current_thread){
+    if (unique_id.is_id_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread){
         sigprocmask(SIG_UNBLOCK, &sa, NULL);
         std::cerr << "Error\n" << std::endl;
         return -1;
@@ -365,12 +383,10 @@ int uthread_sync(int tid) {
     t_sync.sync_dependencies.pushback(tid);
     uthreads[current_thread]->waiting_for = tid;
 
-    if (uthread_block(current_thread)){
-        std::cerr << "Error\n" << std::endl;
-        return -1;
-    }
-
+    blocked_by_sync.pushback(tid);
+    switchThreads(SYNCED_BLOCKED_SWITCH);
     sigprocmask(SIG_UNBLOCK, &sa, NULL);
+
     return 0;
 }
 
