@@ -33,7 +33,7 @@ address_t translate_address(address_t addr)
 #else
 /* code for 32 bit Intel arch */
 
-typedef unsigned int address_t;
+typedef unsigned int address_t;  // To UPDATE NAME??
 #define JB_SP 4
 #define JB_PC 5
 
@@ -54,7 +54,7 @@ enum state {
     READY, RUNNING, BLOCKED
 };
 std::deque<int> ready;
-std::deque<int> blocked;
+std::deque<int> blocked_by_sync;
 int current_thread;
 int total_quantums;
 
@@ -111,6 +111,7 @@ unique_id tids = unique_id(MAX_THREAD_NUM);
 #define SELF_SWITCH -30
 #define TERMINATE_SWITCH -40
 #define RUNNING_BLOCKED_SWITCH -50
+#define SYNCED_BLOCKED_SWITCH -60
 #define NO_THREAD -10
 
 /** uthread class */
@@ -118,12 +119,13 @@ typedef class thread thread;
 thread* uthreads[MAX_THREAD_NUM];
 struct sigaction sa;
 
+/** */
 class thread {
 public:
     int quantums;
     std::deque<int> sync_dependencies;     // thread ids waiting for this thread to run // UPDATE THIS
     int waiting_for;                   // current thread is waiting for synced_t to run // UPDATE THIS
-    bool blocked;
+    bool blocked_directly;
     char *stack;
     thread() {
         quantums = 0;
@@ -135,13 +137,13 @@ public:
     }
 };
 
+/** */
 void switchThreads(int status) {
+    /**Setting the handler to ignore the default alarm signal */
     sa.sa_handler = SIG_IGN;
     if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
         printf("sigaction error.");
     }
-    uthreads[current_thread]->quantums += 1;
-    total_quantums += 1;
 
     int ret_val = sigsetjmp(env[current_thread],1);
     if (ret_val == 1) {
@@ -160,29 +162,6 @@ void switchThreads(int status) {
         ready.push_back(current_thread);
     }
 
-    /**When a running thread blocked itself */
-    if (status == RUNNING_BLOCKED_SWITCH){
-
-    }
-    /** update threads which were synced with running thread // LO MEVINIM*/
-    if (status != TERMINATE_SWITCH){
-        for (int i : uthreads[current_thread]->syncedWith) {
-            uthreads[i]->synced_t = NO_THREAD;
-            uthreads[current_thread]->syncedWith.pop_front();
-            if (!uthreads[i]->blocked){
-                ready.push_back(i);
-            }
-        }
-    }
-    /** remove those synced threads from blocked state*/
-    int j = 0;
-    for (int i : blocked)
-    {
-        if (!uthreads[i]->blocked and uthreads[i]->synced_t == NO_THREAD){
-            blocked.erase(blocked.begin()+ j);
-        }
-        j++;
-    }
     if (status == TERMINATE_SWITCH){
         delete uthreads[runningIndex];
         uthreads[runningIndex] = nullptr;
@@ -192,6 +171,11 @@ void switchThreads(int status) {
     current_thread = ready.front();
     ready.pop_front();
 
+    /**Each time switch is called the quantums increase. */
+    uthreads[current_thread]->quantums += 1;
+    total_quantums += 1;
+
+    /**Setting the current handler to be switchThread, such that if the timer for a thread ends, we'll switch it */
     sa.sa_handler = &switchThreads;
     sigaction(SIGVTALRM, &set, NULL);
     if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
@@ -202,7 +186,6 @@ void switchThreads(int status) {
 
     siglongjmp(env[currentThread],1);
 }
-
 
 /**
  * Description: This function creates a new thread, whose entry point is the
@@ -218,25 +201,64 @@ void switchThreads(int status) {
  * On failure, return -1.
  */
 int uthread_spawn(void (*f)(void)){
+
+    sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
+
     int curr_id = unique_id.generateID();
     if(curr_id == -1){
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        std::cerr << "Error\n" << std::endl;
         return curr_id;
     }
-    uthread curr_thread = thread();
+
     try {
-        curr_thread.*stack = new char[STACK_SIZE];
-    } catch (){
-        ~curr_thread();
+        uthread* new_thread = new thread();
+        new_thread->stack = new char[STACK_SIZE];
+
+    } catch (std::bad_alloc){
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        std::cerr << "Error\n" << std::endl;
+        ~new_thread();
         return -1;
     }
-    uthreads[curr_id] = curr_thread; // maybe & ??
+
+    ////////////////// FROM HERE SAME AS KERENS
+
+    address_t sp, pc;
+    sp = (address_t)new_thread->stack + STACK_SIZE - sizeof(address_t);
+    pc = (address_t)f;
+
+    // store thread's context and return for first context switch
+    int ret_val = sigsetjmp(env[tid], 1);
+    if (ret_val != 0){
+        sa.sa_handler = &contextSwitch;
+        sigaction(SIGVTALRM, &sa, NULL);
+        if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
+            std::cerr << "Error\n" << std::endl;
+            // no error thrown, program will continue running with timing error
+            // in order to not disrupt flow
+        }
+        return;
+    }
+    (env[tid]->__jmpbuf)[JB_SP] = translate_address(sp);
+    (env[tid]->__jmpbuf)[JB_PC] = translate_address(pc);
+    sigemptyset(&env[tid]->__saved_mask);
+
+    uthreads[curr_id] = curr_thread;
     ready.pushback(curr_id);
+    sigprocmask(SIG_UNBLOCK, &sa, NULL);
+
 
     return curr_id;
 }
+
+/** */
 bool is_blocked(int tid) {
 	d
 }
+
 /**
  * Description: This function terminates the thread with ID tid and deletes
  * it from all relevant control structures. All the resources allocated by
@@ -269,7 +291,7 @@ int uthread_terminate(int tid) {
 
 	/* add all the threads that finishied their sync dependency with this thread to the end of the ready threads list
 	   and change their states */
-	ready.insert(ready.cend(), uthreads[tid]->sync_dependencies.begin(), uthreads[tid]->sync_dependencies.end())
+	ready.insert(ready.cend(), uthreads[tid]->sync_dependencies.begin(), uthreads[tid]->sync_dependencies.end());
 	blocked.erase(std::remove_if(blocked.begin(), blocked.end(), [](decltype(blocked)::value_type const& elem) {
                                           return elem.z < 0;
                                       }), blocked.end());
@@ -327,18 +349,65 @@ int uthread_terminate(int tid) {
  * @return On success, return 0. On failure, return -1.
  */
 int uthread_block(int tid){
-    if ((tid == MAIN_THREAD_ID) || (tid < 0) || (tid > MAX_THREAD_NUM) || (!unique_id.isIDUsed(tid))){
+
+    sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
+
+    /**If the ID is invalid */
+    if (unique_id.is_id_valid(tid) || tid == MAIN_THREAD_ID){
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        std::cerr << "Error\n" << std::endl;
         return -1;
-    } else if (current_thread == tid) {
-        scheduling decision;
-    } else {
+    } else if (current_thread == tid){
+    /**If the current thread - the running one is blocking itself, a schedualing decision should be made */
+
+        current_thread->blocked_directly = true;
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        switchThreads(RUNNING_BLOCKED_SWITCH);
+
+    } else if (!uthreads[tid]->blocked_directly){
         that_thread = uthreads[tid];
-        that_thread.bloocked = true;
-        blocked.pushback(tid);
-        ready.erase(tid);
+        that_thread->blocked_directly = true;
+        ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+
     }
+    return 0;
 
 }
+
+/**
+ * Description: This function blocks the RUNNING thread until thread with
+ * ID tid will terminate. It is considered an error if no thread with ID tid
+ * exists or if the main thread (tid==0) calls this function. Immediately after the
+ * RUNNING thread transitions to the BLOCKED state a scheduling decision should be made.
+ * Return value: On success, return 0. On failure, return -1.
+*/
+int uthread_sync(int tid) {
+
+    sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
+
+    /**If the ID is invalid , Or if it belonges to the running thread - then not logical*/
+    if (unique_id.is_id_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread){
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        std::cerr << "Error\n" << std::endl;
+        return -1;
+    }
+
+    uthread* t_sync = uthreads[tid];
+    t_sync.sync_dependencies.pushback(tid);
+    uthreads[current_thread]->waiting_for = tid;
+
+    blocked_by_sync.pushback(tid);
+    switchThreads(SYNCED_BLOCKED_SWITCH);
+    sigprocmask(SIG_UNBLOCK, &sa, NULL);
+
+    return 0;
+}
+
 
 /*
  * Description: Releases the assigned library memory.
