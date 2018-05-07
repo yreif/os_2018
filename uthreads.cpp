@@ -140,6 +140,15 @@ public:
 /** */
 void switchThreads(int status) {
     /**Setting the handler to ignore the default alarm signal */
+/*
+ * Description: Releases the assigned library memory.
+*/
+int free_uthreads() {
+
+}
+
+
+void switchThreads(int status) {
     sa.sa_handler = SIG_IGN;
     if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
         printf("sigaction error.");
@@ -254,10 +263,7 @@ int uthread_spawn(void (*f)(void)){
     return curr_id;
 }
 
-/** */
-bool is_blocked(int tid) {
-	d
-}
+
 
 /**
  * Description: This function terminates the thread with ID tid and deletes
@@ -283,57 +289,26 @@ int uthread_terminate(int tid) {
         free_uthreads();
         exit(0);
     } // otherwise, terminate thread:
-	
+
 	/* remove terminated thread from ready & blocked & used ids */
 	ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
     blocked.erase(std::remove(blocked.begin(), blocked.end(), tid), blocked.end());
-	tids.remove_id(tid);
 
 	/* add all the threads that finishied their sync dependency with this thread to the end of the ready threads list
 	   and change their states */
-	ready.insert(ready.cend(), uthreads[tid]->sync_dependencies.begin(), uthreads[tid]->sync_dependencies.end());
-	blocked.erase(std::remove_if(blocked.begin(), blocked.end(), [](decltype(blocked)::value_type const& elem) {
-                                          return elem.z < 0;
-                                      }), blocked.end());
-	
-    // clear all syncs
-    for (int syncedThread : threadPtrs[tid]->syncedWith)
-    {
-        threadPtrs[syncedThread]->synced_t = NO_THREAD;
-        if (!threadPtrs[syncedThread]->blocked){
-            for (int i = (int)blocked.size(); i >= 0; --i)
-            {
-                if (blocked[i] == syncedThread)
-                {
-                    blocked.erase(blocked.begin() + i);
-                    break;
-                }
-            }
-            ready.push_back(syncedThread);
-        }
+	ready.insert(ready.cend(), uthreads[tid]->sync_dependencies.begin(), uthreads[tid]->sync_dependencies.end())
+	auto is_blocked = [](int tid) { return std::find(blocked.begin(), blocked.end(), tid) != blocked.end(); }
+	blocked.erase(std::remove_if(blocked.begin(), blocked.end(), is_blocked), blocked.end());
+
+    if (current_thread == tid) {
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        contextSwitch(TERMINATE_SWITCH); // LO MEVIN
+        return 0;
     }
 
-    if (runningIndex == tid){
-        sigprocmask(SIG_UNBLOCK, &set, NULL);
-        contextSwitch(TERMINATE_SWITCH);
-        return 0;
-    } else{
-        delete threadPtrs[tid];
-        threadPtrs[tid] = nullptr;
-    }
-	
-	
-	
-	
-	
-	
-    if (get_thread(tid, to_terminate) < 0) { // MISSING IMPLEMENTATION
-        uthreads_error("no thread with ID tid exists");
-        return -1;
-    }
-    // how to know if a thread terminates itself???
-    to_terminate.terminate();
-	
+    delete uthreads[tid];
+    uthreads[tid] = nullptr;
+	tids.remove_id(tid);
 	sigprocmask(SIG_UNBLOCK, &sa, NULL);
 }
 
@@ -410,8 +385,74 @@ int uthread_sync(int tid) {
 
 
 /*
- * Description: Releases the assigned library memory.
+ * Description: This function resumes a blocked thread with ID tid and moves
+ * it to the READY state. Resuming a thread in a RUNNING or READY state
+ * has no effect and is not considered as an error. If no thread with
+ * ID tid exists it is considered an error.
+ * Return value: On success, return 0. On failure, return -1.
 */
-int free_uthreads() {
+int uthread_resume(int tid) {
+	sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
 
+    if (!unique_id.is_id_valid(tid)) {
+        std::cerr << "thread library error: resume called with invalid id " << std::to_string(tid) << std::endl;
+        return -1;
+    }
+	if (tid == MAIN_THREAD_ID) { // main thread can't be blocked.
+		return 0;
+	}
+	if (tid == current_thread) { // running thread isn't blocked
+		return 0;
+	}
+
+	/* if thread is blocked, change it's state to ready */
+	if (is_blocked(tid)) {
+		blocked.erase( std::remove(blocked.begin(), blocked.end(), tid) , blocked.end());
+		ready.push_back(tid);
+	}
+
+	sigprocmask(SIG_UNBLOCK, &sa, NULL);
+}
+
+
+
+/*
+ * Description: This function returns the thread ID of the calling thread.
+ * Return value: The ID of the calling thread.
+*/
+int uthread_get_tid() {
+	return current_thread;
+}
+
+/*
+ * Description: This function returns the total number of quantums since
+ * the library was initialized, including the current quantum.
+ * Right after the call to uthread_init, the value should be 1.
+ * Each time a new quantum starts, regardless of the reason, this number
+ * should be increased by 1.
+ * Return value: The total number of quantums.
+*/
+int uthread_get_total_quantums() {
+	return total_quantums;
+}
+
+
+/*
+ * Description: This function returns the number of quantums the thread with
+ * ID tid was in RUNNING state. On the first time a thread runs, the function
+ * should return 1. Every additional quantum that the thread starts should
+ * increase this value by 1 (so if the thread with ID tid is in RUNNING state
+ * when this function is called, include also the current quantum). If no
+ * thread with ID tid exists it is considered an error.
+ * Return value: On success, return the number of quantums of the thread with ID tid.
+ * 			     On failure, return -1.
+*/
+int uthread_get_quantums(int tid) {
+	if (!unique_id.is_id_valid(tid)) {
+        std::cerr << "thread library error: get_quantums called with invalid id " << std::to_string(tid) << std::endl;
+        return -1;
+    }
+	return uthreads[tid]->quantums;
 }

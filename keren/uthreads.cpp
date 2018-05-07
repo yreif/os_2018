@@ -1,8 +1,4 @@
-/**
- * @brief: OS 67808, Ex.2
- * @authors Keren Meron, Eldan Chodorov
- * @date 2017
- */
+
 
 #include "uthreads.h"
 #include <sys/time.h>

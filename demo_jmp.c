@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/time.h>
-
+#include <stdlib.h>
 #define SECOND 1000000
 #define STACK_SIZE 4096
 
@@ -120,7 +120,7 @@ void setup(void)
 
 int main(void)
 {
-  setup();		
+  setup();
   siglongjmp(env[0], 1);
   return 0;
 }
