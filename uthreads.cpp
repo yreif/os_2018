@@ -223,11 +223,30 @@ int uthread_spawn(void (*f)(void)){
         ~new_thread();
         return -1;
     }
+
+    ////////////////// FROM HERE SAME AS KERENS
+
     address_t sp, pc;
     sp = (address_t)stack + STACK_SIZE - sizeof(address_t);
     pc = (address_t)func;
 
-
+    // store thread's context and return for first context switch
+    int ret_val = sigsetjmp(env[tid], 1);
+    if (ret_val != 0){
+        struct sigaction set;
+        set.sa_handler = &contextSwitch;
+        sigaction(SIGVTALRM, &set, NULL);
+        if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
+            std::cerr << "thread library error: setitimer error.\n" << std::endl;
+            // no error thrown, program will continue running with timing error
+            // in order to not disrupt flow
+        }
+        return;
+    }
+    (env[tid]->__jmpbuf)[JB_SP] = translate_address(sp);
+    (env[tid]->__jmpbuf)[JB_PC] = translate_address(pc);
+    sigemptyset(&env[tid]->__saved_mask);
+    ////////////////// UNTIL HERE SAME AS KERENS
 
     uthreads[curr_id] = curr_thread;
     ready.pushback(curr_id);
@@ -241,6 +260,7 @@ int uthread_spawn(void (*f)(void)){
 bool is_blocked(int tid) {
 	d
 }
+
 /**
  * Description: This function terminates the thread with ID tid and deletes
  * it from all relevant control structures. All the resources allocated by
@@ -348,7 +368,7 @@ int uthread_block(int tid){
         sigprocmask(SIG_UNBLOCK, &sa, NULL);
         switchThreads(RUNNING_BLOCKED_SWITCH);
 
-    } else if (!uthreads[tid]->blocked){
+    } else if (!uthreads[tid]->blocked_directly){
         that_thread = uthreads[tid];
         that_thread->blocked_directly = true;
         ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
