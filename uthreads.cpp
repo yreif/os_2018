@@ -227,17 +227,16 @@ int uthread_spawn(void (*f)(void)){
     ////////////////// FROM HERE SAME AS KERENS
 
     address_t sp, pc;
-    sp = (address_t)stack + STACK_SIZE - sizeof(address_t);
-    pc = (address_t)func;
+    sp = (address_t)new_thread->stack + STACK_SIZE - sizeof(address_t);
+    pc = (address_t)f;
 
     // store thread's context and return for first context switch
     int ret_val = sigsetjmp(env[tid], 1);
     if (ret_val != 0){
-        struct sigaction set;
-        set.sa_handler = &contextSwitch;
-        sigaction(SIGVTALRM, &set, NULL);
+        sa.sa_handler = &contextSwitch;
+        sigaction(SIGVTALRM, &sa, NULL);
         if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
-            std::cerr << "thread library error: setitimer error.\n" << std::endl;
+            std::cerr << "Error\n" << std::endl;
             // no error thrown, program will continue running with timing error
             // in order to not disrupt flow
         }
@@ -246,7 +245,6 @@ int uthread_spawn(void (*f)(void)){
     (env[tid]->__jmpbuf)[JB_SP] = translate_address(sp);
     (env[tid]->__jmpbuf)[JB_PC] = translate_address(pc);
     sigemptyset(&env[tid]->__saved_mask);
-    ////////////////// UNTIL HERE SAME AS KERENS
 
     uthreads[curr_id] = curr_thread;
     ready.pushback(curr_id);
