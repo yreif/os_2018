@@ -170,6 +170,10 @@ void switchThreads(int status) {
     current_thread = ready.front();
     ready.pop_front();
 
+    /**Each time switch is called the quantums increase. */
+    uthreads[current_thread]->quantums += 1;
+    total_quantums += 1;
+
     /**Setting the current handler to be switchThread, such that if the timer for a thread ends, we'll switch it */
     sa.sa_handler = &switchThreads;
     sigaction(SIGVTALRM, &set, NULL);
@@ -179,9 +183,6 @@ void switchThreads(int status) {
         // in order to not disrupt flow
     }
 
-    /**Each time switch is called the quantums increase. */
-    uthreads[current_thread]->quantums += 1;
-    total_quantums += 1;
     siglongjmp(env[currentThread],1);
 }
 
