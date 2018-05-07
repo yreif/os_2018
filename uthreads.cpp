@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <signal.h>
 #include <deque>
+#include <set>
 #include <iostream>
 #include <stdlib.h>
 
@@ -62,12 +63,18 @@ sigjmp_buf env[MAX_THREAD_NUM];
 
 
 typedef struct unique_id {
-
-public:
-
+private:
+    static int max_id = 0;
     static std::set<int> s_unUsedID;
+public:
+    unique_id(int _max_id) : max_id(_max_id) {
+        std::set<int>::iterator iter = s_unUsedID.end();
+        for (int i=0; i < max_id; ++i) {
+            iter = s_unUsedID.insert(iter, i);
+        }
+    }
 
-    static int generateID() // Generate a valid ID
+    static int generate_id() // Generate a valid ID
     {
         static int id = 0;
 
@@ -80,47 +87,46 @@ public:
         return id;
     }
 
-    static void start_me()
-    {
-        for (int i = 1; i < MAX_THREAD_NUM + 1; ++i) {
-            s_unUsedID.insert(i);
-        }
-    }
-
-    static void removeID(int id) // Remove a given ID from the set of used ID
+    static void remove_id(int id) // Remove a given ID from the set of used ID
     {
         s_unUsedID.insert(id);
     }
 
-    static int isIDUsed(int id)
+    /** returns 0 if in use and 1 otherwise*/
+    static int is_id_used(int id)
     {
-        if (id > MAX_THREAD_NUM)
-        {
-            return -1;
-        }
-        return s_unUsedID.count(id) == 0 ? 0:1;
+
+        return s_unUsedID.count(id) == 0 ? 1:0;
+    }
+
+    /** returns 0 if id is valid for library operation and 1 otherwise*/
+    static int is_id_valid(int id)
+    {
+        return (id < max_id and id > 0 and is_id_used(id) == 0) ? 0:1;
     }
 
 } unique_id;
 
+unique_id tids = unique_id(MAX_THREAD_NUM);
 #define SELF_SWITCH -30
 #define TERMINATE_SWITCH -40
 #define RUNNING_BLOCKED_SWITCH -50
 #define NO_THREAD -10
 
 /** uthread class */
-typedef class uthread uthread;
-uthread* uthreads[MAX_THREAD_NUM];
+typedef class thread thread;
+thread* uthreads[MAX_THREAD_NUM];
+struct sigaction sa;
 
-class uthread {
+class thread {
 public:
     int quantums;
-    std::deque<int> syncedWith;     // thread ids waiting for this thread to run // UPDATE THIS
+    std::deque<int> sync_dependencies;     // thread ids waiting for this thread to run // UPDATE THIS
     int waiting_for;                   // current thread is waiting for synced_t to run // UPDATE THIS
     bool blocked;
     char *stack;
     thread() {
-        quatums = 0;
+        quantums = 0;
         blocked = false;
         waiting_for = NO_THREAD;
     }
@@ -129,9 +135,15 @@ public:
     }
 };
 
-void switchThreads(int status)
-{
-    struct sigaction sa;
+/*
+ * Description: Releases the assigned library memory.
+*/
+int free_uthreads() {
+
+}
+
+
+void switchThreads(int status) {
     sa.sa_handler = SIG_IGN;
     if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
         printf("sigaction error.");
@@ -188,7 +200,7 @@ void switchThreads(int status)
     current_thread = ready.front();
     ready.pop_front();
 
-    set.sa_handler = &switchThreads;
+    sa.sa_handler = &switchThreads;
     sigaction(SIGVTALRM, &set, NULL);
     if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
         std::cerr << "thread library error: setitimer error.\n" << std::endl;
@@ -199,15 +211,6 @@ void switchThreads(int status)
     siglongjmp(env[currentThread],1);
 }
 
-void system_error(char *text) {
-    fprintf(std::stderr, "system error: %s\n", text);
-    free_uthreads();
-    exit(1);
-}
-
-void uthreads_error(char *text) {
-    fprintf(std::stderr, "thread library error: %s\n", text);
-}
 
 /**
  * Description: This function creates a new thread, whose entry point is the
@@ -219,7 +222,7 @@ void uthreads_error(char *text) {
  * Return value: On success, return the ID of the created thread.
  * On failure, return -1.
  * @param f = function f with the signature void f(void)
- * @return eturn the ID of the created thread.
+ * @return the ID of the created thread.
  * On failure, return -1.
  */
 int uthread_spawn(void (*f)(void)){
@@ -252,17 +255,39 @@ int uthread_spawn(void (*f)(void)){
  * thread is terminated, the function does not return.
 */
 int uthread_terminate(int tid) {
-    uthread *to_terminate;
+    sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
+
+    if (!unique_id.is_id_valid(tid)) {
+        std::cerr << "thread library error: terminate called with invalid id " << std::to_string(tid) << std::endl;
+        return -1;
+    }
     if (tid == MAIN_THREAD_ID) {
         free_uthreads();
         exit(0);
+    } // otherwise, terminate thread:
+	
+	/* remove terminated thread from ready & blocked & used ids */
+	ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
+    blocked.erase(std::remove(blocked.begin(), blocked.end(), tid), blocked.end());
+
+	/* add all the threads that finishied their sync dependency with this thread to the end of the ready threads list
+	   and change their states */
+	ready.insert(ready.cend(), uthreads[tid]->sync_dependencies.begin(), uthreads[tid]->sync_dependencies.end())
+	auto is_blocked = [](int tid) { return std::find(blocked.begin(), blocked.end(), tid) != blocked.end(); }
+	blocked.erase(std::remove_if(blocked.begin(), blocked.end(), is_blocked), blocked.end());
+
+    if (current_thread == tid) {
+        sigprocmask(SIG_UNBLOCK, &sa, NULL);
+        contextSwitch(TERMINATE_SWITCH); // LO MEVIN
+        return 0;
     }
-    if (get_thread(tid, to_terminate) < 0) { // MISSING IMPLEMENTATION
-        uthreads_error("no thread with ID tid exists");
-        return -1;
-    }
-    // how to know if a thread terminates itself???
-    to_terminate.terminate();
+	
+    delete uthreads[tid];
+    uthreads[tid] = nullptr;
+	tids.remove_id(tid);
+	sigprocmask(SIG_UNBLOCK, &sa, NULL);
 }
 
 /**
@@ -291,8 +316,74 @@ int uthread_block(int tid){
 }
 
 /*
- * Description: Releases the assigned library memory.
+ * Description: This function resumes a blocked thread with ID tid and moves
+ * it to the READY state. Resuming a thread in a RUNNING or READY state
+ * has no effect and is not considered as an error. If no thread with
+ * ID tid exists it is considered an error.
+ * Return value: On success, return 0. On failure, return -1.
 */
-int free_uthreads() {
+int uthread_resume(int tid) {
+	sigemptyset(&sa);
+    sigaddset(&sa, SIGVTALRM);
+    sigprocmask(SIG_BLOCK, &sa, NULL);
 
+    if (!unique_id.is_id_valid(tid)) {
+        std::cerr << "thread library error: resume called with invalid id " << std::to_string(tid) << std::endl;
+        return -1;
+    }
+	if (tid == MAIN_THREAD_ID) { // main thread can't be blocked.
+		return 0;
+	}
+	if (tid == current_thread) { // running thread isn't blocked
+		return 0;
+	}
+	
+	/* if thread is blocked, change it's state to ready */
+	if (is_blocked(tid)) {
+		blocked.erase( std::remove(blocked.begin(), blocked.end(), tid) , blocked.end());
+		ready.push_back(tid);
+	}
+	
+	sigprocmask(SIG_UNBLOCK, &sa, NULL);
+}
+
+
+
+/*
+ * Description: This function returns the thread ID of the calling thread.
+ * Return value: The ID of the calling thread.
+*/
+int uthread_get_tid() {
+	return current_thread;
+}
+
+/*
+ * Description: This function returns the total number of quantums since
+ * the library was initialized, including the current quantum.
+ * Right after the call to uthread_init, the value should be 1.
+ * Each time a new quantum starts, regardless of the reason, this number
+ * should be increased by 1.
+ * Return value: The total number of quantums.
+*/
+int uthread_get_total_quantums() {
+	return total_quantums;
+}
+
+
+/*
+ * Description: This function returns the number of quantums the thread with
+ * ID tid was in RUNNING state. On the first time a thread runs, the function
+ * should return 1. Every additional quantum that the thread starts should
+ * increase this value by 1 (so if the thread with ID tid is in RUNNING state
+ * when this function is called, include also the current quantum). If no
+ * thread with ID tid exists it is considered an error.
+ * Return value: On success, return the number of quantums of the thread with ID tid.
+ * 			     On failure, return -1.
+*/
+int uthread_get_quantums(int tid) {
+	if (!unique_id.is_id_valid(tid)) {
+        std::cerr << "thread library error: get_quantums called with invalid id " << std::to_string(tid) << std::endl;
+        return -1;
+    }
+	return uthreads[tid]->quantums;
 }
