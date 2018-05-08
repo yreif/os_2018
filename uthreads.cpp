@@ -71,7 +71,7 @@ private:
 public:
     explicit unique_id(int _max_id) : max_id(_max_id) {
         auto iter = unused_ids.end();
-        for (int i=0; i < max_id; ++i) {
+        for (int i=1; i < max_id; ++i) {
             iter = unused_ids.insert(iter, i);
         }
     }
