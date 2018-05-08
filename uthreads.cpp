@@ -222,14 +222,15 @@ int uthread_spawn(void (*f)(void)){
         return curr_id;
     }
 
+    thread* new_thread = nullptr;
     try {
-        uthread* new_thread = new thread();
+        new_thread = new thread();
         new_thread->stack = new char[STACK_SIZE];
 
     } catch (std::bad_alloc){
         sigprocmask(SIG_UNBLOCK, &sa, NULL);
         std::cerr << "Error\n" << std::endl;
-        ~new_thread();
+        delete(new_thread);
         return -1;
     }
 
@@ -240,9 +241,9 @@ int uthread_spawn(void (*f)(void)){
     pc = (address_t)f;
 
     // store thread's context and return for first context switch
-    int ret_val = sigsetjmp(env[tid], 1);
+    int ret_val = sigsetjmp(env[curr_id], 1);
     if (ret_val != 0){
-        sa.sa_handler = &contextSwitch;
+        sa.sa_handler = &switchThreads;
         sigaction(SIGVTALRM, &sa, NULL);
         if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
             std::cerr << "Error\n" << std::endl;
@@ -251,11 +252,11 @@ int uthread_spawn(void (*f)(void)){
         }
         return;
     }
-    (env[tid]->__jmpbuf)[JB_SP] = translate_address(sp);
-    (env[tid]->__jmpbuf)[JB_PC] = translate_address(pc);
-    sigemptyset(&env[tid]->__saved_mask);
+    (env[curr_id]->__jmpbuf)[JB_SP] = translate_address(sp);
+    (env[curr_id]->__jmpbuf)[JB_PC] = translate_address(pc);
+    sigemptyset(&env[curr_id]->__saved_mask);
 
-    uthreads[curr_id] = curr_thread;
+    uthreads[curr_id] = new_thread;
     ready.pushback(curr_id);
     sigprocmask(SIG_UNBLOCK, &sa, NULL);
 
