@@ -1,0 +1,42 @@
+
+
+
+
+
+====================
+THEORTICAL QUESTIONS
+====================
+
+
+
+2. GOOGLE CHROME:
+Advantages of processes over kernel-level threads:
+- all of the processes are protected from each other (require os to communicate):
+  since different tabs in a browser shouldn't be using the same resources or changing
+  each other's enviroments, this is good for this usage: if one tab crashes, it won't
+  affect the rest.
+- When you close a tab, the process is terminated and its address space on the memory
+  is released. If threads are used, the memory is assigned for the whole process,
+  so the address space used by the terminated thread is still used by the process
+  and isn't released.
+
+
+
+Disadvantages:
+- all operations require a kernel trap: significant work
+- it's faster to create a new thread than a process
+- it takes less time to terminate a thread rathern than a process
+- it's faster to switch between two threads within the same process
+
+3. Interrupts and signals:
+Explain which interrupts and signals are involved during the command execution, what
+triggered them and who should handle them. In your answer refer to the keyboard, OS,
+shell and the application you just killed
+
+When we typed 'kill' in the shell, the shell handled the keyboard (hardware) interrupts sent
+to it by the os and received our input.
+The kill command we ran in the shell requests the OS to use the kill system call to send the
+SIGTERM signal to the shotwell process.
+This signal can be handled, blocked or ignored by the process. If the application has a
+handler for this signal, it can use it to perform cleanup operations before terminating itself.
+Otherwise the default handler is used and the process is terminated without any special cleanup.
