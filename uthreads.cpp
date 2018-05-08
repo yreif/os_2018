@@ -153,7 +153,7 @@ int uthreads_exit(int exit_code) {
 /*
  * Description: Handles system errors
  */
-void uthreads_sys_error(char * msg) {
+void uthreads_sys_error(const char * msg) {
     std::cerr << "system error: " << msg << std::endl;
     uthreads_exit(1);
 }
