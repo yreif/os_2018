@@ -78,7 +78,7 @@ public:
 
     int generate_id()
     {
-        static int id = 0;
+        static int id;
 
         if (unused_ids.empty()) {
             return -1;
@@ -106,14 +106,21 @@ public:
         return (id < max_id and id >= 0 and is_used(id) == 0) ? 0:1;
     }
 
+    ~unique_id()
+    {
+        unused_ids.clear();
+    }
+
 } unique_id; // TODO: check for every function that id checking fits it
 
 unique_id tids = unique_id(MAX_THREAD_NUM);
-#define SELF_SWITCH -30
-#define TERMINATE_SWITCH -40
-#define RUNNING_BLOCKED_SWITCH -50
-#define SYNCED_BLOCKED_SWITCH -60
-#define NO_THREAD -10
+#define TERMINATE_SWITCH -1
+#define RUNNING_BLOCKED_SWITCH -2
+#define SYNCED_BLOCKED_SWITCH -3
+#define EMPTY -4
+
+// TODO: remove counters!!!
+int new_counter = 0;
 
 /** uthread class */
 typedef class thread thread;
@@ -128,10 +135,17 @@ public:
     bool blocked_directly;
     bool sync_blocked;
     char *stack;
-    thread() : quantums(0), blocked_directly(false), sync_blocked(false), waiting_for(NO_THREAD), stack(nullptr) {
+    thread() : quantums(0), blocked_directly(false), sync_blocked(false), waiting_for(EMPTY) {
+        try{
+            stack = new char[STACK_SIZE];
+            new_counter++;
+        }catch (const std::bad_alloc& e){
+            throw(e);
+        }
     }
     ~thread() {
         delete[] stack;
+        new_counter--;
     }
 };
 
@@ -140,12 +154,14 @@ public:
  * Description: Releases the assigned library memory before exit
  */
 int uthreads_exit(int exit_code) {
-    for (int tid=1; tid < MAX_THREAD_NUM; ++tid) {
+    for (int tid=0; tid < MAX_THREAD_NUM; ++tid) {
         if (uthreads[tid]) {
             delete uthreads[tid];
+            new_counter--;
             uthreads[tid] = nullptr;
         }
     }
+    std::cerr << "counters: " << std::to_string(new_counter) << "\n\n\n";
     exit(exit_code);
     // TODO: handle deletion of main thread if necessary
 }
@@ -184,6 +200,7 @@ void switch_threads(int status) {
 
     if (status == TERMINATE_SWITCH){
         delete uthreads[current_thread];
+        new_counter--;
         uthreads[current_thread] = nullptr;
     }
 
@@ -245,6 +262,7 @@ int uthread_init(int quantum_usecs) {
     try
     {
         main_thread = new thread();
+        new_counter++;
     }
     catch (const std::bad_alloc& e)
     {
@@ -282,7 +300,7 @@ int uthread_spawn(void (*f)(void)){
     }
     try {
         new_thread = new thread();
-        new_thread->stack = new char[STACK_SIZE];
+        new_counter++;
 
     } catch (const std::bad_alloc& e) { // TO HAGAR: catch by reference
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
@@ -312,7 +330,6 @@ int uthread_spawn(void (*f)(void)){
     sigprocmask(SIG_UNBLOCK, &set, nullptr);
     return curr_id;
 }
-
 
 
 /**
@@ -359,8 +376,8 @@ int uthread_terminate(int tid) {
         switch_threads(TERMINATE_SWITCH); // LO MEVIN, maybe better to do this here
         return 0;
     }
-
     delete uthreads[tid];
+    new_counter--;
     uthreads[tid] = nullptr;
 	sigprocmask(SIG_UNBLOCK, &set, nullptr);
 }
@@ -439,7 +456,7 @@ int uthread_resume(int tid) {
 */
 int uthread_sync(int tid) {
     sigprocmask(SIG_BLOCK, &set, nullptr);
-    if (tids.is_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread) {
+    if ( !tids.is_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread) {
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
         std::cerr << "thread library error: sync called by thread " << std::to_string(current_thread) <<
                   " with invalid id " << std::to_string(tid) << std::endl;

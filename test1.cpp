@@ -82,8 +82,8 @@ int main()
         error();
     if (uthread_spawn(thread1) != 4)
         error();
-
     printf(GRN "SUCCESS\n" RESET);
     uthread_terminate(0);
+
 
 }
