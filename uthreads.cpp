@@ -100,7 +100,7 @@ public:
         return unused_ids.count(id) == 0 ? 1:0;
     }
 
-    /** returns 0 if id is valid for library operation and 1 otherwise */
+    /** returns 0 if id is valid for library operation and 1 otherwise Doesn't check if it is the Main thread,*/
     int is_valid(int id)
     {
         return (id < max_id and id >= 0 and is_used(id) == 0) ? 0:1;
@@ -270,9 +270,10 @@ int uthread_init(int quantum_usecs) {
  * On failure, return -1.
  */
 int uthread_spawn(void (*f)(void)){
+
     sigprocmask(SIG_BLOCK, &set, nullptr);
 
-    thread* new_thread = nullptr; // TO HAGAR: we must declare the variable outside of try/catch, otherwise we can't use it outside
+    thread* new_thread = nullptr;
     int curr_id = tids.generate_id();
     if (curr_id == -1) {
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
@@ -280,7 +281,7 @@ int uthread_spawn(void (*f)(void)){
         return -1;
     }
     try {
-        auto new_thread = new thread(); // TO HAGAR: we can use auto, it will give us a pointer as well
+        new_thread = new thread();
         new_thread->stack = new char[STACK_SIZE];
 
     } catch (const std::bad_alloc& e) { // TO HAGAR: catch by reference
@@ -452,7 +453,7 @@ int uthread_sync(int tid) {
     return 0; // TODO: when does this function return? is it okay to free block b4 switching?
 }
 
-/*
+/**
  * Description: This function returns the thread ID of the calling thread.
  * Return value: The ID of the calling thread.
 */
@@ -460,7 +461,7 @@ int uthread_get_tid() {
 	return current_thread;
 }
 
-/*
+/**
  * Description: This function returns the total number of quantums since
  * the library was initialized, including the current quantum.
  * Right after the call to uthread_init, the value should be 1.
@@ -472,7 +473,7 @@ int uthread_get_total_quantums() {
 	return total_quantums;
 }
 
-/*
+/**
  * Description: This fundction returns the number of quantums the thread with
  * ID tid was in RUNNING state. On the first time a thread runs, the function
  * should return 1. Every additional quantum that the thread starts should
