@@ -407,7 +407,7 @@ int uthread_block(int tid) {
 int uthread_resume(int tid) {
     sigprocmask(SIG_BLOCK, &set, nullptr);
 
-    if (!unique_id.is_valid(tid)) {
+    if (!tids.is_valid(tid)) {
         std::cerr << "thread library error: resume called with invalid id " << std::to_string(tid) << std::endl;
         return -1;
     }
@@ -439,7 +439,7 @@ int uthread_resume(int tid) {
 */
 int uthread_sync(int tid) {
     sigprocmask(SIG_BLOCK, &set, nullptr);
-    if (unique_id.is_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread) {
+    if (tids.is_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread) {
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
         std::cerr << "thread library error: sync called by thread " << std::to_string(current_thread) <<
                   " with invalid id " << std::to_string(tid) << std::endl;
@@ -484,7 +484,7 @@ int uthread_get_total_quantums() {
  * 			     On failure, return -1.
 */
 int uthread_get_quantums(int tid) { // TODO: make sure this works okay on main thread
-	if (!unique_id.is_valid(tid)) {
+	if (!tids.is_valid(tid)) {
         std::cerr << "thread library error: get_quantums called with invalid id " << std::to_string(tid) << std::endl;
         return -1;
     }
