@@ -9,7 +9,8 @@
 #include <set>
 #include <iostream>
 #include <algorithm>
-#include <cstdlib>
+
+
 
 #define SECOND 1000000
 #define MAIN_THREAD_ID 0
@@ -251,10 +252,10 @@ int uthread_init(int quantum_usecs) {
     timer.it_interval.tv_usec = quantum_usecs;	// following time intervals, microseconds part
 
     sa.sa_handler = &switch_threads;
-    if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
+    if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
         uthreads_sys_error("sigaction error in function uthreads_init");
     }
-    if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
+    if (setitimer (ITIMER_VIRTUAL, &timer, nullptr)) {
         uthreads_sys_error("setitimer error in function uthreads_init");
     }
     current_thread = 0;
@@ -270,6 +271,8 @@ int uthread_init(int quantum_usecs) {
         exit(1);
     }
     uthreads[0] = main_thread;
+    total_quantums = 1;
+    main_thread->quantums = 1;
     return 0;
 }
 
@@ -491,7 +494,7 @@ int uthread_get_total_quantums() {
 }
 
 /**
- * Description: This fundction returns the number of quantums the thread with
+ * Description: This function returns the number of quantums the thread with
  * ID tid was in RUNNING state. On the first time a thread runs, the function
  * should return 1. Every additional quantum that the thread starts should
  * increase this value by 1 (so if the thread with ID tid is in RUNNING state
