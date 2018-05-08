@@ -63,7 +63,7 @@ int uthread_block(int tid);
 
 /*
  * Description: This function resumes a blocked thread with ID tid and moves
- * it to the READY state. Resuming a thread in a RUNNING or READY state
+ * it to the READY state if it's not synced. Resuming a thread in a RUNNING or READY state
  * has no effect and is not considered as an error. If no thread with
  * ID tid exists it is considered an error.
  * Return value: On success, return 0. On failure, return -1.
@@ -74,8 +74,9 @@ int uthread_resume(int tid);
 /*
  * Description: This function blocks the RUNNING thread until thread with
  * ID tid will terminate. It is considered an error if no thread with ID tid
- * exists or if the main thread (tid==0) calls this function. Immediately after the
- * RUNNING thread transitions to the BLOCKED state a scheduling decision should be made.
+ * exists, if thread tid calls this function or if the main thread (tid==0) calls this function.
+ * Immediately after the RUNNING thread transitions to the BLOCKED state a scheduling decision
+ * should be made.
  * Return value: On success, return 0. On failure, return -1.
 */
 int uthread_sync(int tid);
