@@ -71,7 +71,7 @@ private:
 public:
     explicit unique_id(int _max_id) : max_id(_max_id) {
         auto iter = unused_ids.end();
-        for (int i=0; i < max_id; ++i) {
+        for (int i=1; i < max_id; ++i) {
             iter = unused_ids.insert(iter, i);
         }
     }
@@ -246,7 +246,7 @@ int uthread_init(int quantum_usecs) {
     {
         main_thread = new thread();
     }
-    catch (std::bad_alloc)
+    catch (const std::bad_alloc& e)
     {
         std::cerr << "system error: memory allocation failed.\n" << std::endl;
         exit(1);
