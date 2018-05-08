@@ -119,7 +119,7 @@ unique_id tids = unique_id(MAX_THREAD_NUM);
 typedef class thread thread;
 thread* uthreads[MAX_THREAD_NUM];
 
-/** */
+/** This c */
 class thread {
 public:
     int quantums;
