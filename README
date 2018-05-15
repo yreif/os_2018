@@ -1,42 +1,80 @@
+hagar.dolev, yuval.reif
+Hagar Dolev (309840841), Yuval Reif (308490234)
+EX: 2
+
+FILES:
+uthreads.cpp -- an implementation for the uthreads library.
+Makefile -- use make to create the library, and tar for creating a tar.
 
 
+=================================
+ANSWERS FOR THEORETICAL QUESTIONS
+=================================
+
+1. Example for a general use of user-level threads:
+A general use case for user-level thread is when an application needs to remain responsive
+to new input. if it had only one thread, it could be stuck on a task for a lot of time,
+and the application will effectively be irresponsive.
+A specific example would be managing the tasks of a single tab in a web browser:
+It needs to load the web page (text, images, etc) and present it on the screen,
+allow scripts (js, flash) in the web page to run, and also response to the user's
+clicks and keyboard strokes. It needs to allow add-ons to work, and some need to 
+monitor every new response from the web server. Overall, a web browser needs to
+let a lot of very different activites be "online" all the time.
+
+User level threads are a reasonable choice for this example for several reasons:
+- These tasks work on the same resources (new data sent from the web server, new input
+  from the user) but look at it from different aspects - so kernel level threads would be
+  a less reasonable choice for this kind of use.
+- Switching between different user threads is efficient in time (compared to other options).
+- The process can choose to let different threads have different quantums according to the
+  task they  perfrom: letting the browser have this kind of "power" is good in this case.
+- These tasks don't require a lot of computation resources or run time - a little "attention"
+  is just right, so we better keep multiprocessing for other tasks (i.e. user level threads
+  are just enough).
 
 
-
-====================
-THEORTICAL QUESTIONS
-====================
-
-
-
-2. GOOGLE CHROME:
+2. Google Chrome's tabs:
 Advantages of processes over kernel-level threads:
 - all of the processes are protected from each other (require os to communicate):
   since different tabs in a browser shouldn't be using the same resources or changing
-  each other's enviroments, this is good for this usage: if one tab crashes, it won't
+  each other's enviroments, this is good for this kind of use: if one tab crashes, it won't
   affect the rest.
 - When you close a tab, the process is terminated and its address space on the memory
   is released. If threads are used, the memory is assigned for the whole process,
   so the address space used by the terminated thread is still used by the process
   and isn't released.
 
-
-
 Disadvantages:
 - all operations require a kernel trap: significant work
 - it's faster to create a new thread than a process
-- it takes less time to terminate a thread rathern than a process
-- it's faster to switch between two threads within the same process
+- it takes less time to terminate a thread rather than a process
+- it's faster to switch between two threads, as switching between processes has more
+  overhead.
+
 
 3. Interrupts and signals:
-Explain which interrupts and signals are involved during the command execution, what
+Q: Explain which interrupts and signals are involved during the command execution, what
 triggered them and who should handle them. In your answer refer to the keyboard, OS,
 shell and the application you just killed
 
-When we typed 'kill' in the shell, the shell handled the keyboard (hardware) interrupts sent
-to it by the os and received our input.
+A: When we typed 'kill pid' in the shell, the shell handled the keyboard (hardware) interrupts sent
+to it by the os and received our input. When we hit Enter, the shell received another interrupt
+and ran the command we typed.
 The kill command we ran in the shell requests the OS to use the kill system call to send the
 SIGTERM signal to the shotwell process.
 This signal can be handled, blocked or ignored by the process. If the application has a
 handler for this signal, it can use it to perform cleanup operations before terminating itself.
 Otherwise the default handler is used and the process is terminated without any special cleanup.
+
+
+4. Difference between 'real' and 'virtual' time:
+'real' time - time as we humans measure it, a 'real' clock ticks at all times. We'd use real time
+to measure the running time of a program/action, or to... count real time passing by (setting
+a timer for the oven from my phone).
+'virtual' time - just the time of the program execution (only when the process is executing).
+We'd use virtual time, like we did in this exercise, to let an action be executed a specific
+amount of time without taking into account or limiting the time it takes to load the
+variables, environment, the time it did not run at all, etc.
+
+
