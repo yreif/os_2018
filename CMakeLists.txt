@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
-project(os_ex2)
+project(os_2018)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS -pthread)
 
-set(ATOMIC ex2/uthreads.cpp ex2/uthreads.h)
-set(BARRIER ex2/uthreads.cpp ex2/uthreads.h)
-set(SAMPLE ex2/uthreads.cpp ex2/uthreads.h)
-add_executable(test1 ${SOURCE_FILES} ex2/tests/test1.cpp)
-add_executable(test2 ${SOURCE_FILES} ex2/tests/test2.cpp)
-add_executable(test5 ${SOURCE_FILES} ex2/tests/test5fixed.cpp)
+set(ATOMIC ex3/atomicdemo/atomicdemo.cpp)
+set(BARRIER ex3/barrierdemo/barrierdemo.cpp ex3/barrierdemo/Barrier.cpp ex3/barrierdemo/Barrier.h)
+set(SAMPLE ex3/sampleclient/SampleClient.cpp)
+add_executable(atomic_demo ${ATOMIC})
+add_executable(barrier_demo ${BARRIER})
