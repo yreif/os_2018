@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <stdlib.h>
+
 #define SECOND 1000000
 #define STACK_SIZE 4096
 
@@ -58,28 +59,32 @@ address_t translate_address(address_t addr)
 
 #endif
 
+int stop = 0;
+
 void switchThreads(void)
 {
   static int currentThread = 0;
 
   int ret_val = sigsetjmp(env[currentThread],1);
-  printf("SWITCH: ret_val=%d\n", ret_val); 
   if (ret_val == 1) {
+//    printf("heyy");
       return;
   }
   currentThread = 1 - currentThread;
   siglongjmp(env[currentThread],1);
+
 }
 
 void f(void)
 {
   int i = 0;
-  while(1){
+  while(stop < 1){
     ++i;
     printf("in f (%d)\n",i);
     if (i % 3 == 0) {
       printf("f: switching\n");
-      switchThreads();
+        stop += 1;
+        switchThreads();
     }
     usleep(SECOND);
   }

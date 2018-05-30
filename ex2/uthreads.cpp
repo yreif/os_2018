@@ -177,9 +177,12 @@ void switch_threads(int signum) {
     if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
         uthreads_sys_error("sigaction error in function switch_threads");
     }
-
+    std::cout << std::to_string(current_thread) << std::endl;
     int ret_val = sigsetjmp(env[current_thread], SAVEMASK);
     if (ret_val == 1) {
+        std::cout << std::to_string(current_thread) << std::endl;
+        std::cout << "heyy" << std::endl;
+
         sa.sa_handler = &switch_threads;
         if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
             uthreads_sys_error("sigaction error in function switch_threads");
