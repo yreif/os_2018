@@ -6,9 +6,12 @@
 #include <algorithm> // for std::sort
 #include <iostream> // Yuval: TODO: remove after testing
 #include <semaphore.h>
-#include <semaphore.h>
 
 typedef std::vector<IntermediateVec> IntermediateVectors;
+
+bool keyEqual2(K2* a, K2* b){
+    return !(*a < *b) && !(*b < *a);
+}
 
 struct ThreadContext {
     /** Input from runMapReduceFramework */
@@ -22,8 +25,8 @@ struct ThreadContext {
     std::atomic<int>* inputVectorIndex;
     sem_t* semaphore;
     pthread_mutex_t* mutex;
-    pthread_cond_t* cv;
-    sem_t* writersCount;
+//    pthread_cond_t* cv;
+//    sem_t* writersCount;
 };
 
 
@@ -45,8 +48,8 @@ void mapPhase(ThreadContext *tc) {
 
 
 void sortPhase(const ThreadContext *tc) {
-    IntermediateVec intermediateVec = (*tc->intermediateVectors)[tc->threadID];
-    sort(intermediateVec.begin(), intermediateVec.end()); // Yuval: TODO: check sort key/value
+    IntermediateVec* intermediateVec = &(*tc->intermediateVectors)[tc->threadID];
+    sort(intermediateVec->begin(), intermediateVec->end()); // Hagar: TODO: chnged to pointer - sorts inplace? , Yuval: TODO: check sort key/value
     tc->barrier->barrier();
 }
 
@@ -57,7 +60,7 @@ void *singleThread(void *arg) {
     /** Sort phase: sort this thread's intermediate vector */
     sortPhase(tc);
 
-//    /** Map phase: Take input from inputVector */
+/**    /** Map phase: Take input from inputVector
 //    unsigned long inputSize = tc->inputVector->size();
 //    int previousIndex = 0;
 //    while (true) {
@@ -70,8 +73,7 @@ void *singleThread(void *arg) {
 //            break;
 //        }
 //    }
-
-//    /** testing Map and Sort phases: */
+//    /** testing Map and Sort phases:
 //    char *c;
 //    int *i;
 //
@@ -82,23 +84,53 @@ void *singleThread(void *arg) {
 //        }
 //        std::cout << std::endl;
 //    }
-//    /** end of testing section */
+     end of testing section */
+
     /** Shuffle phase: only for thread 0 */
     if (tc->threadID == 0) {
+        K2* curr_key = nullptr;
         while (!(*tc->intermediateVectors).empty()){
-            K2 curr_key = *(*tc->intermediateVectors)[0][0].first;
+            for (int j = 0; j < (*tc->intermediateVectors).size(); ++j) {
+                if ((*tc->intermediateVectors)[j].empty()){
+                    pthread_mutex_lock(tc->mutex);
+
+                    (*tc->intermediateVectors).erase((*tc->intermediateVectors).begin());
+
+                    pthread_mutex_unlock(tc->mutex);
+                }
+            }
+            if ((*tc->intermediateVectors).empty()) break;
+            curr_key = (*tc->intermediateVectors)[0][0].first;
             IntermediateVec curr_vec = IntermediateVec(0);
+
             for (int i = 0; i < (*tc->intermediateVectors).size(); ++i) {
+
                 int k = 0;
-                while (k < (*tc->intermediateVectors)[i].size() && keyEqual2(&curr_key, (*tc->intermediateVectors)[i][k].first)){
-                    curr_vec.push_back((*tc->intermediateVectors)[i][k]);
+                while (k < (*tc->intermediateVectors)[i].size()){
+                    if (keyEqual2(curr_key, (*tc->intermediateVectors)[i][k].first)){
+                        curr_vec.push_back((*tc->intermediateVectors)[i][k]);
+                    }
                     k++;
                 }
-                (*tc->intermediateVectors)[i].erase((*tc->intermediateVectors)[i].begin(),
-                                                    (*tc->intermediateVectors)[i].begin() + k);
+                if (k != 0){
+
+                    pthread_mutex_lock(tc->mutex);
+
+                    (*tc->intermediateVectors)[i].erase((*tc->intermediateVectors)[i].begin(),
+                                                        (*tc->intermediateVectors)[i].begin() + k);
+                    pthread_mutex_unlock(tc->mutex);
+
+                }
+
 
                 if ((*tc->intermediateVectors)[i].empty()){
+
+                    pthread_mutex_lock(tc->mutex);
+
                     (*tc->intermediateVectors).erase((*tc->intermediateVectors).begin() + i);
+
+                    pthread_mutex_unlock(tc->mutex);
+
                 }
             }
 
@@ -111,10 +143,11 @@ void *singleThread(void *arg) {
 
             pthread_mutex_unlock(tc->mutex);
 
+
         }
 
 
-//        /** testing Map and Sort phases: */
+        /** testing Map and Sort phases:
 //        char *c;
 //        int *i;
 //
@@ -131,19 +164,22 @@ void *singleThread(void *arg) {
     /** Reduce phase: */
     while (true) {
         int sem_val;
+        sem_wait(tc->semaphore);
+
         sem_getvalue(tc->semaphore, &sem_val);
-        IntermediateVec *currVec = NULL;
+        IntermediateVec currVec;
         if (!(sem_val == 0 && (*tc->intermediateVectors).empty())){
 
             sem_wait(tc->semaphore);
 
             pthread_mutex_lock(tc->mutex);
 
-            currVec = &(*tc->shuffleVectors)[-1];
+            currVec = (*tc->shuffleVectors).back();
             (*tc->shuffleVectors).pop_back();
 
             pthread_mutex_unlock(tc->mutex);
-            tc->client->reduce(currVec, tc);
+
+            tc->client->reduce(&currVec, tc);
 
 
         } else {
@@ -152,7 +188,7 @@ void *singleThread(void *arg) {
     }
 
 
-//    /** Map phase: Take input from inputVector */
+    /** Map phase: Take input from inputVector
 //    unsigned long inputSize = tc->inputVector->size();
 //    int previousIndex = 0;
 //    while (true) {
@@ -164,7 +200,7 @@ void *singleThread(void *arg) {
 //        } else {
 //            break;
 //        }
-//    }
+//    } */
 }
 
 
@@ -185,16 +221,16 @@ void runMapReduceFramework(const MapReduceClient& client,
     }
 
     pthread_mutex_t mutex(PTHREAD_MUTEX_INITIALIZER);
-    pthread_cond_t cv(PTHREAD_COND_INITIALIZER);
-    sem_t writersCount;
+//    pthread_cond_t cv(PTHREAD_COND_INITIALIZER);
+//    sem_t writersCount;
 
-    if (!sem_init(&writersCount, 0, 1)){
-        //hagar, TODO: Error management
-    }
+//    if (!sem_init(&writersCount, 0, 1)){
+//        //hagar, TODO: Error management
+//    }
 
     for (int id = 0; id < multiThreadLevel; ++id) {
         contexts[id] = {&client, &inputVec, &outputVec, &intermediateVectors, &shuffleVectors,
-                       id, &barrier, &inputIndex, &sem, &mutex, &cv, &writersCount};
+                       id, &barrier, &inputIndex, &sem, &mutex};
     }
 
     for (int i = 0; i < multiThreadLevel; ++i) {
