@@ -1,5 +1,5 @@
 
-// TO HAGAR: goodtoknow - in C++ use <cstdlib> and not <stdlib.h>
+
 #include "uthreads.h"
 #include <sys/time.h>
 #include <csetjmp>
@@ -9,7 +9,8 @@
 #include <set>
 #include <iostream>
 #include <algorithm>
-#include <cstdlib>
+
+
 
 #define SECOND 1000000
 #define MAIN_THREAD_ID 0
@@ -53,105 +54,114 @@ address_t translate_address(address_t addr)
 }
 
 #endif
-std::deque<int> ready;
-//std::deque<int> blocked;  // TO HAGAR: I check all uses of this and it's better to just use another field in thread
-int current_thread;
-int total_quantums;
 
-struct itimerval timer;
-struct sigaction sa;
-sigset_t set; // TODO: is it okay to make this global? TO HAGAR: seems okay 'cus sigprocmask requires it to be const
-sigjmp_buf env[MAX_THREAD_NUM];
-
-// TO HAGAR: when functions were static they couldn't do stuff to the set. also change set's name to something with _
-typedef struct unique_id {
-private:
-    int max_id = 0;
-    std::set<int> unused_ids;
-public:
-    explicit unique_id(int _max_id) : max_id(_max_id) {
-        auto iter = unused_ids.end();
-        for (int i=1; i < max_id; ++i) {
-            iter = unused_ids.insert(iter, i);
-        }
-    }
-
-    int generate_id()
-    {
-        static int id = 0;
-
-        if (unused_ids.empty()) {
-            return -1;
-        }
-        id = *unused_ids.begin();
-        unused_ids.erase(unused_ids.begin()); // TO HAGAR: erase by position is O(1), by value is O(log n)
-
-        return id;
-    }
-
-    void remove_id(int id) // Remove a given ID from the set of used ID
-    {
-        unused_ids.insert(id);
-    }
-
-    /** returns 0 if in use and 1 otherwise*/
-    int is_used(int id)
-    {
-        return unused_ids.count(id) == 0 ? 1:0;
-    }
-
-    /** returns 0 if id is valid for library operation and 1 otherwise Doesn't check if it is the Main thread,*/
-    int is_valid(int id)
-    {
-        return (id < max_id and id >= 0 and is_used(id) == 0) ? 0:1;
-    }
-
-} unique_id; // TODO: check for every function that id checking fits it
-
-unique_id tids = unique_id(MAX_THREAD_NUM);
-#define SELF_SWITCH -30
-#define TERMINATE_SWITCH -40
-#define RUNNING_BLOCKED_SWITCH -50
-#define SYNCED_BLOCKED_SWITCH -60
-#define NO_THREAD -10
+typedef struct unique_id unique_id;
+typedef class thread thread;
 
 /** uthread class */
-typedef class thread thread;
 thread* uthreads[MAX_THREAD_NUM];
-
-/** This c */
 class thread {
 public:
+    bool blocked_directly; // blocked using uthreads_block on this thread
+    bool sync_blocked; // blocked because it synced to another thread
     int quantums;
-    std::deque<int> sync_dependencies;     // thread ids waiting for this thread to run // UPDATE THIS
-    int waiting_for;                   // current thread is waiting for synced_t to run // UPDATE THIS
-    bool blocked_directly;
-    bool sync_blocked;
+    std::deque<int> sync_dependencies; // all the threads that are synced with this one
     char *stack;
-    thread() : quantums(0), blocked_directly(false), sync_blocked(false), waiting_for(NO_THREAD), stack(nullptr) {
+    thread() : blocked_directly(false), sync_blocked(false), quantums(0) {
+        try{
+            stack = new char[STACK_SIZE];
+        }catch (const std::bad_alloc& e){
+            throw(e);
+        }
     }
     ~thread() {
         delete[] stack;
     }
 };
 
+/** unique_id struct - manages the id's */
+struct unique_id {
+private:
+    int max_id = 0;
+    std::set<int> unused_ids;
+public:
+    explicit unique_id(int _max_id) : max_id(_max_id) { // add all ids to set:
+        auto iter = unused_ids.end();
+        for (int i=1; i < max_id; ++i) {
+            iter = unused_ids.insert(iter, i);
+        }
+    }
 
-/*
- * Description: Releases the assigned library memory before exit
+    /** returns the minimal id not in use if one exists, and -1 otherwise */
+    int generate_id() {
+        static int id;
+
+        if (unused_ids.empty()) {
+            return -1;
+        }
+        id = *unused_ids.begin();
+        unused_ids.erase(unused_ids.begin());
+
+        return id;
+    }
+
+    /** remove a certain id from the group of used ids */
+    void remove_id(int id) {
+        unused_ids.insert(id);
+    }
+
+    /** returns 0 if in use and 1 otherwise*/
+    int is_used(int id) {
+        return unused_ids.count(id) == 0 ? 1:0;
+    }
+
+    /** returns 0 if id is valid for library operation and 1 otherwise.
+     * Main thread is considered valid. */
+    int is_valid(int id) {
+        return (id < max_id and id >= 0 and is_used(id) == 0) ? 0:1;
+    }
+
+    ~unique_id()
+    {
+        unused_ids.clear();
+    }
+
+};
+
+/** global variables */
+std::deque<int> ready;
+int current_thread;
+int total_quantums;
+struct itimerval timer;
+struct sigaction sa;
+sigset_t set;
+sigjmp_buf env[MAX_THREAD_NUM];
+unique_id tids = unique_id(MAX_THREAD_NUM);
+
+
+/* signal numbers in linux are numbers from 1 to 30, so we use negative numbers as
+ * additional parameters to the function that handles switching threads */
+#define TERMINATE_SWITCH (-2) // switch from terminated thread
+#define BLOCK_SWITCH (-3) // switch from blocked thread
+#define SAVEMASK (1) // for sigsetjmp, save sigmask
+
+
+
+/**
+ * Description: Releases the assigned library memory before exit.
  */
 int uthreads_exit(int exit_code) {
-    for (int tid=1; tid < MAX_THREAD_NUM; ++tid) {
+    for (int tid=0; tid < MAX_THREAD_NUM; ++tid) {
         if (uthreads[tid]) {
             delete uthreads[tid];
             uthreads[tid] = nullptr;
         }
     }
     exit(exit_code);
-    // TODO: handle deletion of main thread if necessary
 }
 
-/*
- * Description: Handles system errors
+/**
+ * Description: Handles system errors.
  */
 void uthreads_sys_error(const char * msg) {
     std::cerr << "system error: " << msg << std::endl;
@@ -159,15 +169,20 @@ void uthreads_sys_error(const char * msg) {
 }
 
 
-/** Setting the handler to ignore the default alarm signal */
-void switch_threads(int status) {
+/**
+ * Description: Handles switching between threads in all cases.
+ * */
+void switch_threads(int signum) {
     sa.sa_handler = SIG_IGN;
     if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
         uthreads_sys_error("sigaction error in function switch_threads");
     }
-
-    int ret_val = sigsetjmp(env[current_thread],1);
+    std::cout << std::to_string(current_thread) << std::endl;
+    int ret_val = sigsetjmp(env[current_thread], SAVEMASK);
     if (ret_val == 1) {
+        std::cout << std::to_string(current_thread) << std::endl;
+        std::cout << "heyy" << std::endl;
+
         sa.sa_handler = &switch_threads;
         if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
             uthreads_sys_error("sigaction error in function switch_threads");
@@ -178,11 +193,11 @@ void switch_threads(int status) {
         }
         return;
     } /** otherwise, thread not preempted: insert back into ready queue */
-    if (status == SIGVTALRM) {
+    if (signum == SIGVTALRM) {  // SIGVTALRM == 26
         ready.push_back(current_thread);
     }
 
-    if (status == TERMINATE_SWITCH){
+    if (signum == TERMINATE_SWITCH) {
         delete uthreads[current_thread];
         uthreads[current_thread] = nullptr;
     }
@@ -191,11 +206,11 @@ void switch_threads(int status) {
     current_thread = ready.front();
     ready.pop_front();
 
-    /**Each time switch is called the quantums increase. */
+    /** Each time switch is called, the newly running thread's quantum count increases. */
     uthreads[current_thread]->quantums += 1;
     total_quantums += 1;
 
-    /**Setting the current handler to be switchThread, such that if the timer for a thread ends, we'll switch it */
+    /** Setting the handler to switch_threads, so if the quantum for a thread ends we'll switch it */
     sa.sa_handler = &switch_threads;
     sigaction(SIGVTALRM, &sa, nullptr);
     if (setitimer (ITIMER_VIRTUAL, &timer, nullptr)) {
@@ -218,12 +233,13 @@ int uthread_init(int quantum_usecs) {
     sigaddset(&set, SIGVTALRM);
 
     if (quantum_usecs <= 0){
-        std::cerr << "thread library error: init called with non-positive quantum_usecs" << std::endl;
+        std::cerr << "thread library error: init called with non-positive quantum_usecs"
+                  << std::endl;
         return -1;
     }
     int quantum_secs = 0;
-    if (quantum_usecs / SECOND >= 1) { // TODO: check if this works well or matters at all
-        quantum_secs = (int) (quantum_usecs / SECOND);
+    if (quantum_usecs / SECOND >= 1) {
+        quantum_secs = (quantum_usecs / SECOND);
         quantum_usecs -= quantum_secs*SECOND;
     }
     // Configure the timer to expire after supplied time */
@@ -234,10 +250,10 @@ int uthread_init(int quantum_usecs) {
     timer.it_interval.tv_usec = quantum_usecs;	// following time intervals, microseconds part
 
     sa.sa_handler = &switch_threads;
-    if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
+    if (sigaction(SIGVTALRM, &sa, nullptr) < 0) {
         uthreads_sys_error("sigaction error in function uthreads_init");
     }
-    if (setitimer (ITIMER_VIRTUAL, &timer, NULL)) {
+    if (setitimer (ITIMER_VIRTUAL, &timer, nullptr)) {
         uthreads_sys_error("setitimer error in function uthreads_init");
     }
     current_thread = 0;
@@ -252,6 +268,8 @@ int uthread_init(int quantum_usecs) {
         exit(1);
     }
     uthreads[0] = main_thread;
+    total_quantums = 1;
+    main_thread->quantums = 1;
     return 0;
 }
 
@@ -270,20 +288,18 @@ int uthread_init(int quantum_usecs) {
  * On failure, return -1.
  */
 int uthread_spawn(void (*f)(void)){
-
     sigprocmask(SIG_BLOCK, &set, nullptr);
 
     thread* new_thread = nullptr;
     int curr_id = tids.generate_id();
     if (curr_id == -1) {
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
-        std::cerr << "thread library error: request to spawn new thread failed, MAX_THREAD_NUM reached" << std::endl;
+        std::cerr << "thread library error: request to spawn new thread failed, MAX_THREAD_NUM reached"
+                  << std::endl;
         return -1;
     }
     try {
         new_thread = new thread();
-        new_thread->stack = new char[STACK_SIZE];
-
     } catch (const std::bad_alloc& e) { // TO HAGAR: catch by reference
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
         uthreads_sys_error("memory allocation error in uthread_spawn");
@@ -292,16 +308,8 @@ int uthread_spawn(void (*f)(void)){
     sp = (address_t) new_thread->stack + STACK_SIZE - sizeof(address_t);
     pc = (address_t)f;
 
-    // store thread's context and return for first context switch
-//    int ret_val =   // they didn't do this in the demo
-    sigsetjmp(env[curr_id], 1);
-//    if (ret_val != 0){  // they didn't do this in the demo. what is this?
-//        sa.sa_handler = &contextSwitch;
-//        sigaction(SIGVTALRM, &sa, nullptr);
-//        if (setitimer (ITIMER_VIRTUAL, &timer, nullptr)) {
-//            std::cerr << "system error: setitimer error in function uthread_spawn" << std::endl;
-//        }
-//    }
+    sigsetjmp(env[curr_id], SAVEMASK);
+
     (env[curr_id]->__jmpbuf)[JB_SP] = translate_address(sp);
     (env[curr_id]->__jmpbuf)[JB_PC] = translate_address(pc);
     sigemptyset(&env[curr_id]->__saved_mask);
@@ -312,7 +320,6 @@ int uthread_spawn(void (*f)(void)){
     sigprocmask(SIG_UNBLOCK, &set, nullptr);
     return curr_id;
 }
-
 
 
 /**
@@ -327,42 +334,35 @@ int uthread_spawn(void (*f)(void)){
  * thread is terminated, the function does not return.
 */
 int uthread_terminate(int tid) {
-    // TODO: make sure it is okay to not block signals in the error-checking section!
+    sigprocmask(SIG_BLOCK, &set, nullptr);
     if (!tids.is_valid(tid)) {
-        std::cerr << "thread library error: terminate called with invalid id " << std::to_string(tid) << std::endl;
+        std::cerr << "thread library error: terminate called with invalid id " << std::to_string(tid)
+                  << std::endl;
         return -1;
     }
     if (tid == MAIN_THREAD_ID) {
         uthreads_exit(0);
     } // otherwise, terminate thread:
-    sigprocmask(SIG_BLOCK, &set, nullptr);
     tids.remove_id(tid);
 	/* remove terminated thread from ready */
 	ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
-//    blocked.erase(remove(blocked.begin(), blocked.end(), tid), blocked.end());
 
-	/* add all the threads that finished their sync dependency with this thread (and are not otherwise blocked)
-	 * to the end of the ready threads list */
+	/* add all the threads that finished their sync dependency with this thread (and are not
+	 * otherwise blocked) to the end of the ready threads list */
     for (int i : uthreads[tid]->sync_dependencies) {
         uthreads[i]->sync_blocked = false;
         if (!uthreads[i]->blocked_directly) { ready.push_back(i); }
     }
-//    auto change_states = [](int i) {
-//        uthreads[i]->sync_blocked = false;
-//        if (!uthreads[i]->blocked_directly) { ready.push_back(i); }
-//    };
-//	ready.insert(ready.cend(), uthreads[tid]->sync_dependencies.begin(), uthreads[tid]->sync_dependencies.end());
-//	blocked.erase(std::remove_if(blocked.begin(), blocked.end(), is_sync_blocked), blocked.end());
 
     if (current_thread == tid) {
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
-        switch_threads(TERMINATE_SWITCH); // LO MEVIN, maybe better to do this here
+        switch_threads(TERMINATE_SWITCH);
         return 0;
     }
-
     delete uthreads[tid];
     uthreads[tid] = nullptr;
 	sigprocmask(SIG_UNBLOCK, &set, nullptr);
+    return 0;
 }
 
 /**
@@ -380,14 +380,15 @@ int uthread_block(int tid) {
     sigprocmask(SIG_BLOCK, &set, nullptr);
     /** If the ID is invalid */
     if (!tids.is_valid(tid) || tid == MAIN_THREAD_ID) {
-        std::cerr << "thread library error: block called with invalid id " << std::to_string(tid) << std::endl;
+        std::cerr << "thread library error: block called with invalid id " << std::to_string(tid)
+                  << std::endl;
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
         return -1;
     } else if (current_thread == tid) {
     /** If the running thread is blocking itself, a scheduling decision should be made */
         uthreads[tid]->blocked_directly = true;
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
-        switch_threads(RUNNING_BLOCKED_SWITCH); // TODO: do we still use this state?
+        switch_threads(BLOCK_SWITCH);
     } else if (!uthreads[tid]->blocked_directly) { /** thread is not already blocked: */
         uthreads[tid]->blocked_directly = true;
         ready.erase(std::remove(ready.begin(), ready.end(), tid), ready.end());
@@ -408,7 +409,8 @@ int uthread_resume(int tid) {
     sigprocmask(SIG_BLOCK, &set, nullptr);
 
     if (!tids.is_valid(tid)) {
-        std::cerr << "thread library error: resume called with invalid id " << std::to_string(tid) << std::endl;
+        std::cerr << "thread library error: resume called with invalid id " << std::to_string(tid)
+                  << std::endl;
         return -1;
     }
     // main thread can't be blocked, running thread surely isn't blocked:
@@ -439,18 +441,17 @@ int uthread_resume(int tid) {
 */
 int uthread_sync(int tid) {
     sigprocmask(SIG_BLOCK, &set, nullptr);
-    if (tids.is_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread) {
+    if ( !tids.is_valid(tid) || current_thread == MAIN_THREAD_ID || tid == current_thread) {
         sigprocmask(SIG_UNBLOCK, &set, nullptr);
         std::cerr << "thread library error: sync called by thread " << std::to_string(current_thread) <<
                   " with invalid id " << std::to_string(tid) << std::endl;
         return -1;
     }
     uthreads[current_thread]->sync_blocked = true;
-    uthreads[current_thread]->waiting_for = tid;
     uthreads[tid]->sync_dependencies.push_back(current_thread);
     sigprocmask(SIG_UNBLOCK, &set, nullptr);
-    switch_threads(SYNCED_BLOCKED_SWITCH);
-    return 0; // TODO: when does this function return? is it okay to free block b4 switching?
+    switch_threads(BLOCK_SWITCH);
+    return 0;
 }
 
 /**
@@ -474,7 +475,7 @@ int uthread_get_total_quantums() {
 }
 
 /**
- * Description: This fundction returns the number of quantums the thread with
+ * Description: This function returns the number of quantums the thread with
  * ID tid was in RUNNING state. On the first time a thread runs, the function
  * should return 1. Every additional quantum that the thread starts should
  * increase this value by 1 (so if the thread with ID tid is in RUNNING state
@@ -483,9 +484,10 @@ int uthread_get_total_quantums() {
  * Return value: On success, return the number of quantums of the thread with ID tid.
  * 			     On failure, return -1.
 */
-int uthread_get_quantums(int tid) { // TODO: make sure this works okay on main thread
+int uthread_get_quantums(int tid) {
 	if (!tids.is_valid(tid)) {
-        std::cerr << "thread library error: get_quantums called with invalid id " << std::to_string(tid) << std::endl;
+        std::cerr << "thread library error: get_quantums called with invalid id " << std::to_string(tid)
+                  << std::endl;
         return -1;
     }
 	return uthreads[tid]->quantums;

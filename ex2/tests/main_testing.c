@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
-#include "uthreads.h"
+#include "../uthreads.h"
 
 #define SECOND 1000000
 #define STACK_SIZE 4096

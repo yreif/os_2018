@@ -5,7 +5,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include "uthreads.h"
+#include "../uthreads.h"
 
 #define GRN "\e[32m"
 #define RED "\x1B[31m"
@@ -82,8 +82,8 @@ int main()
         error();
     if (uthread_spawn(thread1) != 4)
         error();
-
     printf(GRN "SUCCESS\n" RESET);
     uthread_terminate(0);
+
 
 }
