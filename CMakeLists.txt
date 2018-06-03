@@ -9,7 +9,7 @@ set(BARRIER ex3/barrierdemo/barrierdemo.cpp ex3/barrierdemo/Barrier.cpp ex3/barr
 set(SAMPLE ex3/sampleclient/SampleClient.cpp)
 
 set(FRAMEWORK ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
-              ex3/Barrier.h)
+        ex3/Barrier.h)
 
 add_executable(atomic_demo ${ATOMIC})
 add_executable(barrier_demo ${BARRIER})
