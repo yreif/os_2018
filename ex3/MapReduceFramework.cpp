@@ -10,6 +10,13 @@
 typedef std::vector<IntermediateVec> IntermediateVectors;
 typedef std::vector<IntermediateVec*> Queue;
 
+void properExit(pthread_t* threads, ThreadContext contexts[]){
+    for (int i = 0; i < contexts; ++i) {
+
+    }
+
+}
+
 
 bool keyEqual2(K2* a, K2* b){
     return !(*a < *b) && !(*b < *a);
@@ -30,8 +37,6 @@ struct ThreadContext {
     std::atomic<bool>* isShuffleDone;
 };
 
-
-void shufflePhase(const ThreadContext *tc);
 
 void mapPhase(ThreadContext *tc) {
     /** Map phase: Take input from inputVector */
@@ -156,6 +161,7 @@ void *singleThread(void *arg) {
             pthread_mutex_unlock(tc->mutex);
             if (!queueIsEmpty) {
                 tc->client->reduce(reduceVec, tc);
+                delete(reduceVec);
             }
         } else {
             break;
@@ -198,6 +204,8 @@ void runMapReduceFramework(const MapReduceClient& client,
     for (int i = 0; i < multiThreadLevel-1; ++i) {
         pthread_join(threads[i], nullptr);
     }
+
+    pthread_mutex_destroy(&mutex);
 
 }
 
