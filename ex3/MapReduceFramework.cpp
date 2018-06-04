@@ -57,10 +57,7 @@ void sortPhase(const ThreadContext *tc) {
 
 void shufflePhase(const ThreadContext *tc) {
     K2* curr_key = nullptr;
-//    std::cout << (*tc->intermediateVectors).size() << std::endl;
-//    unsigned long threadNum;
-//    threadNum = 1;//(*tc->intermediateVectors).size();
-
+    unsigned long threadNum = tc->intermediateVectors->size();
     while (!(*tc->intermediateVectors).empty()) {
 
         for (auto sortedVecIter = tc->intermediateVectors->begin(); sortedVecIter != tc->intermediateVectors->end(); ) {
@@ -70,7 +67,9 @@ void shufflePhase(const ThreadContext *tc) {
                 sortedVecIter++;
             }
         }
-
+        if (tc->intermediateVectors->empty()) {
+            break;
+        }
         curr_key = ((*tc->intermediateVectors)[0])[0].first;
 
         auto curr_vec = new IntermediateVec();
@@ -96,22 +95,14 @@ void shufflePhase(const ThreadContext *tc) {
 
         pthread_mutex_lock(tc->mutex);
         (*tc->shuffleVectors).push_back(curr_vec);
-        sem_post(tc->semaphore);
         pthread_mutex_unlock(tc->mutex);
 
+        sem_post(tc->semaphore);
     }
 
-//    pthread_mutex_lock(tc->mutex);
-
-
-//    for (unsigned long i = 0; i < threadNum; ++i) {
-//        sem_post(tc->semaphore);
-//    }
-//    *tc->isShuffleDone = true;
-
-//    pthread_mutex_unlock(tc->mutex);
-
-
+    for (int i = 0; i < threadNum; ++i) {
+        sem_post(tc->semaphore);
+    }
 }
 
 void *singleThread(void *arg) {
@@ -137,44 +128,40 @@ void *singleThread(void *arg) {
     /** Shuffle phase: only for thread 0 */
     if (tc->threadID == 0) {
         shufflePhase(tc);
+
+        pthread_mutex_lock(tc->mutex);
         *tc->isShuffleDone = true;
+        pthread_mutex_unlock(tc->mutex);
     }
 
 
     /** Reduce phase: */
     while (true) {
         int sem_val;
+        bool queueIsEmpty;
+        IntermediateVec* reduceVec = nullptr;
 
         sem_getvalue(tc->semaphore, &sem_val);
-        IntermediateVec* currVecRed = nullptr;
-
-        std::cout << "hi0" << std::endl;
-
-        if (!(*tc->isShuffleDone && sem_val == 0)){
-
+        if (sem_val > 0) {
             sem_wait(tc->semaphore);
+            if (sem_val == 1 and *tc->isShuffleDone) {
+                sem_destroy(tc->semaphore);
+            }
             pthread_mutex_lock(tc->mutex);
-
-            if (!((*tc->shuffleVectors).empty())){
-                currVecRed = (*tc->shuffleVectors).back();
+            queueIsEmpty = tc->shuffleVectors->empty();
+            if (!queueIsEmpty) {
+                reduceVec = (*tc->shuffleVectors).back();
                 (*tc->shuffleVectors).pop_back();
             }
-            std::cout << "hi1" << std::endl;
-
             pthread_mutex_unlock(tc->mutex);
-            std::cout << "hi2" << std::endl;
-
-            tc->client->reduce(currVecRed, tc);
-
+            if (!queueIsEmpty) {
+                tc->client->reduce(reduceVec, tc);
+            }
         } else {
-            std::cout << "hi31" << std::endl;
-
             break;
         }
-        std::cout << "hi32" << std::endl;
 
     }
-    std::cout << "hi33" << std::endl;
 
 }
 
@@ -182,8 +169,7 @@ void *singleThread(void *arg) {
 void runMapReduceFramework(const MapReduceClient& client,
                            const InputVec& inputVec, OutputVec& outputVec,
                            int multiThreadLevel) {
-
-    pthread_t threads[multiThreadLevel];
+    pthread_t threads[multiThreadLevel-1];
     ThreadContext contexts[multiThreadLevel];
     Barrier barrier(multiThreadLevel);
     IntermediateVectors intermediateVectors(multiThreadLevel);
@@ -204,11 +190,12 @@ void runMapReduceFramework(const MapReduceClient& client,
                        id, &barrier, &inputIndex, &sem, &mutex, &isShuffleDone};
     }
 
-    for (int i = 0; i < multiThreadLevel; ++i) {
+    for (int i = 0; i < multiThreadLevel-1; ++i) {
         pthread_create(threads + i, nullptr, singleThread, contexts + i);
     }
+    singleThread(&contexts[multiThreadLevel - 1]);
 
-    for (int i = 0; i < multiThreadLevel; ++i) {
+    for (int i = 0; i < multiThreadLevel-1; ++i) {
         pthread_join(threads[i], nullptr);
     }
 

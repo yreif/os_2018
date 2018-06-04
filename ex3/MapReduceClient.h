@@ -24,13 +24,11 @@ class K2 {
 public:
 	virtual ~K2(){}
 	virtual bool operator<(const K2 &other) const = 0;
-	virtual std::string as_string() = 0; // Yuval: TODO: delete this, added for testing
 };
 
 class V2 {
 public:
 	virtual ~V2(){}
-	virtual std::string as_string() = 0; // Yuval: TODO: delete this, added for testing
 };
 
 // output key and value
