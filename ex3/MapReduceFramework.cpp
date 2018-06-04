@@ -7,7 +7,7 @@
 #include <iostream> // Yuval: TODO: remove after testing
 #include <semaphore.h>
 
-typedef std::vector<IntermediateVec> IntermediateVectors;
+typedef std::vector<IntermediateVec*> IntermediateVectors;
 
 bool keyEqual2(K2* a, K2* b){
     return !(*a < *b) && !(*b < *a);
@@ -48,7 +48,7 @@ void mapPhase(ThreadContext *tc) {
 
 
 void sortPhase(const ThreadContext *tc) {
-    IntermediateVec* intermediateVec = &(*tc->intermediateVectors)[tc->threadID];
+    IntermediateVec* intermediateVec = (*tc->intermediateVectors)[tc->threadID];
     sort(intermediateVec->begin(), intermediateVec->end()); // Hagar: TODO: chnged to pointer - sorts inplace? , Yuval: TODO: check sort key/value
     tc->barrier->barrier();
 }
@@ -90,25 +90,21 @@ void *singleThread(void *arg) {
     if (tc->threadID == 0) {
         K2* curr_key = nullptr;
         while (!(*tc->intermediateVectors).empty()){
-            for (int j = 0; j < (*tc->intermediateVectors).size(); ++j) {
-                if ((*tc->intermediateVectors)[j].empty()){
-                    pthread_mutex_lock(tc->mutex);
 
-                    (*tc->intermediateVectors).erase((*tc->intermediateVectors).begin());
-
-                    pthread_mutex_unlock(tc->mutex);
-                }
-            }
             if ((*tc->intermediateVectors).empty()) break;
-            curr_key = (*tc->intermediateVectors)[0][0].first;
-            IntermediateVec curr_vec = IntermediateVec(0);
+            if ((*tc->intermediateVectors)[0]->empty()){
+                (*tc->intermediateVectors).erase((*tc->intermediateVectors).begin());
+            }
+
+            curr_key = ((*tc->intermediateVectors)[0])[0][0].first;
+            IntermediateVec* curr_vec = new IntermediateVec();
 
             for (int i = 0; i < (*tc->intermediateVectors).size(); ++i) {
 
                 int k = 0;
-                while (k < (*tc->intermediateVectors)[i].size()){
-                    if (keyEqual2(curr_key, (*tc->intermediateVectors)[i][k].first)){
-                        curr_vec.push_back((*tc->intermediateVectors)[i][k]);
+                while (k < (*tc->intermediateVectors)[i]->size()){
+                    if (keyEqual2(curr_key, (*((*tc->intermediateVectors)[i]))[k].first)){
+                        curr_vec->push_back((*((*tc->intermediateVectors)[i]))[k]);
                     }
                     k++;
                 }
@@ -116,36 +112,35 @@ void *singleThread(void *arg) {
 
                     pthread_mutex_lock(tc->mutex);
 
-                    (*tc->intermediateVectors)[i].erase((*tc->intermediateVectors)[i].begin(),
-                                                        (*tc->intermediateVectors)[i].begin() + k);
+                    (*((*tc->intermediateVectors)[i])).erase((*((*tc->intermediateVectors)[i])).begin(),
+                                                        (*((*tc->intermediateVectors)[i])).begin() + k);
                     pthread_mutex_unlock(tc->mutex);
 
                 }
 
+            }
+            int deleted = 0;
+            for (int m = 0; m < (*tc->intermediateVectors).size(); ++m) {
 
-                if ((*tc->intermediateVectors)[i].empty()){
+                if ((*((*tc->intermediateVectors)[m - deleted])).empty()) {
 
                     pthread_mutex_lock(tc->mutex);
 
-                    (*tc->intermediateVectors).erase((*tc->intermediateVectors).begin() + i);
-
+                    (*tc->intermediateVectors).erase((*tc->intermediateVectors).begin() + m - deleted);
+                    deleted ++;
                     pthread_mutex_unlock(tc->mutex);
 
                 }
             }
 
 
-//          int val = 0;
             pthread_mutex_lock(tc->mutex);
-
             (*tc->shuffleVectors).push_back(curr_vec);
-            sem_post(tc->semaphore);
-
             pthread_mutex_unlock(tc->mutex);
 
+            sem_post(tc->semaphore);
 
         }
-
 
         /** testing Map and Sort phases:
 //        char *c;
@@ -164,27 +159,27 @@ void *singleThread(void *arg) {
     /** Reduce phase: */
     while (true) {
         int sem_val;
-        sem_wait(tc->semaphore);
 
         sem_getvalue(tc->semaphore, &sem_val);
-        IntermediateVec currVec;
+        IntermediateVec* currVecRed = nullptr;
+
         if (!(sem_val == 0 && (*tc->intermediateVectors).empty())){
 
             sem_wait(tc->semaphore);
 
             pthread_mutex_lock(tc->mutex);
 
-            currVec = (*tc->shuffleVectors).back();
+            currVecRed = (*tc->shuffleVectors).back();
             (*tc->shuffleVectors).pop_back();
 
+            tc->client->reduce(currVecRed, tc);
+
             pthread_mutex_unlock(tc->mutex);
-
-            tc->client->reduce(&currVec, tc);
-
 
         } else {
             break;
         }
+
     }
 
 
@@ -229,6 +224,7 @@ void runMapReduceFramework(const MapReduceClient& client,
 //    }
 
     for (int id = 0; id < multiThreadLevel; ++id) {
+        intermediateVectors[id] = new IntermediateVec();
         contexts[id] = {&client, &inputVec, &outputVec, &intermediateVectors, &shuffleVectors,
                        id, &barrier, &inputIndex, &sem, &mutex};
     }
@@ -248,7 +244,7 @@ void runMapReduceFramework(const MapReduceClient& client,
 void emit2 (K2* key, V2* value, void* context) {
     auto* tc = (ThreadContext*) context;
     IntermediatePair pair = IntermediatePair(key, value);
-    (*tc->intermediateVectors)[tc->threadID].push_back(pair);
+    (*tc->intermediateVectors)[tc->threadID]->push_back(pair);
 }
 
 void emit3 (K3* key, V3* value, void* context) {
