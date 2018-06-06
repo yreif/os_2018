@@ -2,20 +2,13 @@
 #include <cstdio>
 #include <atomic>
 #include "MapReduceFramework.h"
-#include "Barrier.h" // Yuval: TODO: Barrier class needs to be updated to have return value checks for mutex (in case of error)
+#include "Barrier.h" // Yuval: TODO: Barrier class needs to be updated to have return value checks for shuffle_mutex (in case of error)
 #include <algorithm> // for std::sort
 #include <iostream> // Yuval: TODO: remove after testing
 #include <semaphore.h>
 
 typedef std::vector<IntermediateVec> IntermediateVectors;
 typedef std::vector<IntermediateVec*> Queue;
-
-void properExit(pthread_t* threads, ThreadContext contexts[]){
-    for (int i = 0; i < contexts; ++i) {
-
-    }
-
-}
 
 
 bool keyEqual2(K2* a, K2* b){
@@ -33,10 +26,17 @@ struct ThreadContext {
     Barrier* barrier;
     std::atomic<int>* inputVectorIndex;
     sem_t* semaphore;
-    pthread_mutex_t* mutex;
+    pthread_mutex_t* shuffle_mutex;
+    pthread_mutex_t* reduce_mutex;
     std::atomic<bool>* isShuffleDone;
 };
 
+//void properExit(pthread_t* threads, ThreadContext contexts[]){
+//    for (int i = 0; i < ; ++i) {
+//
+//    }
+//
+//}
 
 void mapPhase(ThreadContext *tc) {
     /** Map phase: Take input from inputVector */
@@ -98,9 +98,9 @@ void shufflePhase(const ThreadContext *tc) {
             }
         }
 
-        pthread_mutex_lock(tc->mutex);
+        pthread_mutex_lock(tc->shuffle_mutex);
         (*tc->shuffleVectors).push_back(curr_vec);
-        pthread_mutex_unlock(tc->mutex);
+        pthread_mutex_unlock(tc->shuffle_mutex);
 
         sem_post(tc->semaphore);
     }
@@ -134,9 +134,9 @@ void *singleThread(void *arg) {
     if (tc->threadID == 0) {
         shufflePhase(tc);
 
-        pthread_mutex_lock(tc->mutex);
+        pthread_mutex_lock(tc->shuffle_mutex);
         *tc->isShuffleDone = true;
-        pthread_mutex_unlock(tc->mutex);
+        pthread_mutex_unlock(tc->shuffle_mutex);
     }
 
 
@@ -152,13 +152,13 @@ void *singleThread(void *arg) {
             if (sem_val == 1 and *tc->isShuffleDone) {
                 sem_destroy(tc->semaphore);
             }
-            pthread_mutex_lock(tc->mutex);
+            pthread_mutex_lock(tc->shuffle_mutex);
             queueIsEmpty = tc->shuffleVectors->empty();
             if (!queueIsEmpty) {
                 reduceVec = (*tc->shuffleVectors).back();
                 (*tc->shuffleVectors).pop_back();
             }
-            pthread_mutex_unlock(tc->mutex);
+            pthread_mutex_unlock(tc->shuffle_mutex);
             if (!queueIsEmpty) {
                 tc->client->reduce(reduceVec, tc);
                 delete(reduceVec);
@@ -188,12 +188,13 @@ void runMapReduceFramework(const MapReduceClient& client,
         //hagar, TODO: Error management
     }
 
-    pthread_mutex_t mutex(PTHREAD_MUTEX_INITIALIZER);
+    pthread_mutex_t shuffle_mutex(PTHREAD_MUTEX_INITIALIZER);
+    pthread_mutex_t reduce_mutex(PTHREAD_MUTEX_INITIALIZER);
 
 
     for (int id = 0; id < multiThreadLevel; ++id) {
         contexts[id] = {&client, &inputVec, &outputVec, &intermediateVectors, &shuffleVectors,
-                       id, &barrier, &inputIndex, &sem, &mutex, &isShuffleDone};
+                       id, &barrier, &inputIndex, &sem, &shuffle_mutex, &reduce_mutex, &isShuffleDone};
     }
 
     for (int i = 0; i < multiThreadLevel-1; ++i) {
@@ -205,7 +206,7 @@ void runMapReduceFramework(const MapReduceClient& client,
         pthread_join(threads[i], nullptr);
     }
 
-    pthread_mutex_destroy(&mutex);
+    pthread_mutex_destroy(&shuffle_mutex);
 
 }
 
@@ -220,9 +221,9 @@ void emit3 (K3* key, V3* value, void* context) {
     auto* tc = (ThreadContext*) context;
     OutputPair pair = OutputPair(key, value);
 
-    pthread_mutex_lock(tc->mutex);
+    pthread_mutex_lock(tc->reduce_mutex);
     (*tc->outputVec).push_back(pair);
-    pthread_mutex_unlock(tc->mutex);
+    pthread_mutex_unlock(tc->reduce_mutex);
 }
 
 
