@@ -38,6 +38,14 @@ bool keyEqual2(K2* a, K2* b){
     return !(*a < *b) && !(*b < *a);
 }
 
+void errorHandler(int ret, const char* sysCall, const char* f, ThreadContext* tc) {
+    if (ret == 0) {
+        return;
+    }
+    std::cerr << "Thread " << tc->threadID << ": error in " << sysCall << " during " << f << std::endl;
+    exit(1);
+}
+
 void emit2 (K2* key, V2* value, void* context) {
     auto* tc = (ThreadContext*) context;
     IntermediatePair pair = IntermediatePair(key, value);
@@ -48,9 +56,9 @@ void emit3 (K3* key, V3* value, void* context) {
     auto* tc = (ThreadContext*) context;
     OutputPair pair = OutputPair(key, value);
 
-    pthread_mutex_lock(tc->reduce_mutex);
+    errorHandler(pthread_mutex_lock(tc->reduce_mutex), "pthread_mutex_lock", "emit3", tc);
     (*tc->outputVec).push_back(pair);
-    pthread_mutex_unlock(tc->reduce_mutex);
+    errorHandler(pthread_mutex_unlock(tc->reduce_mutex), "pthread_mutex_unlock", "emit3", tc);
 }
 
 
@@ -86,7 +94,7 @@ void sortPhase(ThreadContext *tc) {
 
 
 
-void shufflePhase(const ThreadContext *tc) {
+void shufflePhase(ThreadContext *tc) {
     IntermediateVectors * vectors = tc->intermediateVectors;
     unsigned long threadNum = tc->intermediateVectors->size();
     K2* currKey = nullptr;
@@ -132,47 +140,69 @@ void shufflePhase(const ThreadContext *tc) {
                 vecIter++;
             }
         }
-
-        pthread_mutex_lock(tc->shuffle_mutex);
+        errorHandler(pthread_mutex_lock(tc->shuffle_mutex), "pthread_mutex_lock", "shuffle phase", tc);
         (*tc->shuffleVectors).push_back(shuffleVec);
-        pthread_mutex_unlock(tc->shuffle_mutex);
-        sem_post(tc->semaphore);
+        errorHandler(pthread_mutex_unlock(tc->shuffle_mutex), "pthread_mutex_unlock", "shuffle phase", tc);
+        errorHandler(sem_post(tc->semaphore), "sem_post", "shuffle phase", tc);
     }
-
-//    for (unsigned long i = 0; i < threadNum; ++i) { // TODO: delete if the trick doesn't help
-//        sem_post(tc->semaphore);
-//    }
+    // TODO: to Hagar - I moved the "Shuffle done" updated to here, before the "trick" and it seems like it fixed it
+    *tc->isShuffleDone = true;
+    for (unsigned long i = 0; i < threadNum; ++i) {
+        errorHandler(sem_post(tc->semaphore), "sem_post", "shuffle phase", tc);
+    }
 }
 
 void reducePhase(ThreadContext *tc) {
     while (true) {
-        int sem_val;
         bool queueIsEmpty;
         IntermediateVec* reduceVec = nullptr;
 
-        sem_getvalue(tc->semaphore, &sem_val);
-        if (sem_val > 0) {
-            sem_wait(tc->semaphore);
-
-            pthread_mutex_lock(tc->shuffle_mutex);
-            queueIsEmpty = tc->shuffleVectors->empty();
-            if (!queueIsEmpty) {
-                reduceVec = (*tc->shuffleVectors).back();
-                (*tc->shuffleVectors).pop_back();
-            }
-            pthread_mutex_unlock(tc->shuffle_mutex);
-            if (!queueIsEmpty) {
-                tc->client->reduce(reduceVec, tc);
-                delete(reduceVec);
-            }
-
-
-        } else {
+        errorHandler(sem_wait(tc->semaphore), "sem_wait", "reduce phase", tc);
+        errorHandler(pthread_mutex_lock(tc->shuffle_mutex), "pthread_mutex_lock", "reduce phase", tc);
+        queueIsEmpty = tc->shuffleVectors->empty();
+        if (!queueIsEmpty) {
+            reduceVec = (*tc->shuffleVectors).back();
+            (*tc->shuffleVectors).pop_back();
+        }
+        errorHandler(pthread_mutex_unlock(tc->shuffle_mutex), "pthread_mutex_unlock", "reduce phase", tc);
+        if (queueIsEmpty && *tc->isShuffleDone) {
             break;
         }
-
+        else {
+            tc->client->reduce(reduceVec, tc);
+            delete(reduceVec);
+        }
     }
 }
+
+//    while (true) {
+//        int sem_val;
+//        bool queueIsEmpty;
+//        IntermediateVec* reduceVec = nullptr;
+//
+//        sem_getvalue(tc->semaphore, &sem_val);
+//        if (sem_val > 0) {
+//            sem_wait(tc->semaphore);
+//
+//            pthread_mutex_lock(tc->shuffle_mutex);
+//            queueIsEmpty = tc->shuffleVectors->empty();
+//            if (!queueIsEmpty) {
+//                reduceVec = (*tc->shuffleVectors).back();
+//                (*tc->shuffleVectors).pop_back();
+//            }
+//            pthread_mutex_unlock(tc->shuffle_mutex);
+//            if (!queueIsEmpty) {
+//                tc->client->reduce(reduceVec, tc);
+//                delete(reduceVec);
+//            }
+//
+//
+//        } else {
+//            break;
+//        }
+//
+//    }
+
 
 void *singleThread(void *arg) {
 
@@ -194,14 +224,10 @@ void *singleThread(void *arg) {
     sortPhase(tc);
     if (tc->threadID == 0) {
         shufflePhase(tc);
-
-        pthread_mutex_lock(tc->shuffle_mutex);
-        *tc->isShuffleDone = true;
-        pthread_mutex_unlock(tc->shuffle_mutex);
     }
     reducePhase(tc);
 
-    return 0;
+    return nullptr;
 
 }
 
@@ -218,12 +244,16 @@ void runMapReduceFramework(const MapReduceClient& client,
     sem_t sem;
     std::atomic<bool> isShuffleDone(false);
 
-    if (!sem_init(&sem, 0, 0)){
-        //hagar, TODO: Error management
+    if (sem_init(&sem, 0, 0) != 0) {
+        std::cerr << "Error on sem_init" << std::endl;
+        exit(1);
     }
 
-    pthread_mutex_t shuffle_mutex(PTHREAD_MUTEX_INITIALIZER);
-    pthread_mutex_t reduce_mutex(PTHREAD_MUTEX_INITIALIZER);
+    pthread_mutex_t shuffle_mutex, reduce_mutex;
+    if (pthread_mutex_init(&shuffle_mutex, nullptr) != 0 or pthread_mutex_init(&reduce_mutex, nullptr) != 0) {
+        std::cerr << "Error on pthread_mutex_init" << std::endl;
+        exit(1);
+    }
 
 
     for (int id = 0; id < multiThreadLevel; ++id) {
@@ -232,16 +262,30 @@ void runMapReduceFramework(const MapReduceClient& client,
     }
 
     for (int i = 0; i < multiThreadLevel-1; ++i) {
-        pthread_create(threads + i, nullptr, singleThread, contexts + i);
+        if (pthread_create(threads + i, nullptr, singleThread, contexts + i) != 0) {
+            std::cerr << "Error on pthread_create" << std::endl;
+            exit(1);
+        };
     }
     singleThread(&contexts[multiThreadLevel - 1]);
 
     for (int i = 0; i < multiThreadLevel-1; ++i) {
-        pthread_join(threads[i], nullptr);
+        if (pthread_join(threads[i], nullptr) != 0) {
+            std::cerr << "Error on pthread_join" << std::endl;
+            exit(1);
+        };
     }
-
-    pthread_mutex_destroy(&shuffle_mutex);
-    pthread_mutex_destroy(&reduce_mutex);
+//    sem_destroy(&sem);
+//    pthread_mutex_destroy(&shuffle_mutex);
+//    pthread_mutex_destroy(&reduce_mutex);
+    if (pthread_mutex_destroy(&shuffle_mutex) != 0 or pthread_mutex_destroy(&reduce_mutex) != 0) {
+        std::cerr << "Error on pthread_mutex_destroy" << std::endl;
+        exit(1);
+    }
+    if (sem_destroy(&sem) != 0) {
+        std::cerr << "Error on sem_destroy" << std::endl;
+        exit(1);
+    }
 
 }
 
