@@ -1,3 +1,4 @@
+#include <csignal>
 #include "whatsappServer.h"
 
 //WhatsappServer::WhatsappServer()
@@ -5,7 +6,9 @@
 //
 //}
 
-void errorHandler(int ret, const char* sysCall, const char* f) {
+__sighandler_t whatsappServer_exit();
+
+void errorHandler(int ret, const char* sysCall, const char* f, WhatsappServer* server) {
     if (ret == 0) {
         return;
     }
@@ -51,9 +54,9 @@ WhatsappServer::~WhatsappServer() {
 }
 
 
-int get_connection(int s) {
+int get_connection(int s , WhatsappServer* server) {
     int t; /* socket of connection */
-    errorHandler((t = accept(s,NULL,NULL)), "accept", "get_connection");
+    errorHandler((t = accept(s,NULL,NULL)), "accept", "get_connection", server);
     return t;
 }
 
@@ -64,7 +67,7 @@ void establish(WhatsappServer* server) { //was int
         /*hostnet initialization */
         gethostname(myname, MAXHOSTNAME);
         server->hp = gethostbyname(myname);
-        errorHandler((server->hp == NULL),"gethostbyname", "establish");
+        errorHandler((server->hp == NULL),"gethostbyname", "establish", server);
 
         /*sockaddrr_in initlization */
         memset(server->sa, 0, sizeof(struct sockaddr_in));
@@ -77,12 +80,12 @@ void establish(WhatsappServer* server) { //was int
         server->sa->sin_port = htons(*server->portnum);
 
         /* create socket */
-        errorHandler(server->sfd = socket(AF_INET, SOCK_STREAM, 0),"socket", "establish");
+        errorHandler(server->sfd = socket(AF_INET, SOCK_STREAM, 0),"socket", "establish", server);
 
         if (bind(server->sfd, (struct sockaddr *)server->sa, sizeof(struct sockaddr_in)) < 0)
         {
             close(server->sfd);
-            errorHandler(-1 ,"bind", "establish");
+            errorHandler(-1 ,"bind", "establish", server);
         }
 
         listen(server->sfd, MAX_PENDING); /* max # of queued connects */
@@ -103,15 +106,40 @@ int main(int argc, char *argv[])
     WhatsappServer* server = new(WhatsappServer);
     server->clients = &clients;
     server->groups = &groups;
-
     establish(server);
 
-    int curr_socket;
+    fd_set clientsfds;
+    fd_set readfds;
+    FD_ZERO(&clientsfds);
+    FD_SET(server->sfd, &clientsfds);
+    FD_SET(STDIN_FILENO, &clientsfds);
 
-    while (true)
-    {
-        curr_socket = get_connection(server->sfd);
+    signal(SIGINT, whatsappServer_exit());
 
+    while (true) {
+        readfds = clientsfds;
+        errorHandler(select(MAX_CLIENTS + 1, &readfds, NULL, NULL, NULL) ,"select", "main", server);
+
+        if (FD_ISSET(server->sfd, &readfds)) {
+            //will also add the client to the clientsfds
+            get_connection();
+            connectNewClient();
+        }
+
+        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+            serverStdInput();
+        }
+        else {
+            //will check each client if it’s in readfds
+            //and then receive a message from him
+            handleClientRequest();
+        }
     }
-
+    return 0;
 }
+
+__sighandler_t whatsappServer_exit() {
+    return nullptr;
+}
+
+

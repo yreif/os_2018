@@ -19,6 +19,7 @@
 
 #define MAXHOSTNAME 30
 #define MAX_PENDING 10
+#define MAX_CLIENTS = 30
 
 typedef std::pair<const std::string*, int > ClientDesc;
 typedef std::unordered_set<ClientDesc*> Group;
