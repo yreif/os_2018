@@ -1,12 +1,13 @@
 #include <csignal>
 #include "whatsappServer.h"
+#include "whatsappio.h"
 
 //WhatsappServer::WhatsappServer()
 //{
 //
 //}
 
-__sighandler_t whatsappServer_exit();
+//__sighandler_t whatsappServer_exit();
 
 void errorHandler(int ret, const char* sysCall, const char* f, WhatsappServer* server) {
     if (ret == 0) {
@@ -53,6 +54,47 @@ WhatsappServer::~WhatsappServer() {
 
 }
 
+int read_data(int s, char *buf, int n) {
+    int bcount;
+/* counts bytes read */
+    int br;
+/* bytes read this pass */
+    bcount= 0;
+    br= 0;
+    while (bcount < n) { /* loop until full buffer */
+        br = read(s, buf, n-bcount);
+
+        if (br > 0)
+        {
+            bcount += br;
+            if (buf[bcount] == '\n'){
+                return bcount;
+            }
+        }
+        else if ((br == 0) && (bcount >= 0)) return bcount;
+
+        else if ((br < 1) )
+        {
+            return(-1);
+        }
+
+    }
+    return(bcount);
+}
+
+
+ClientDesc* connectNewClient(int s , WhatsappServer* server)
+{
+    int t; /* socket of connection */
+    errorHandler((t = accept(s,NULL,NULL)), "accept", "get_connection", server);
+    ClientDesc client;
+    char * buf = new(char);
+    errorHandler(read(s, buf, WA_MAX_NAME), "couldn't read or nothinf to read", "read_data", server);
+    client.first = buf;
+    client.second = t;
+    return &client
+
+}
 
 int get_connection(int s , WhatsappServer* server) {
     int t; /* socket of connection */
@@ -114,7 +156,7 @@ int main(int argc, char *argv[])
     FD_SET(server->sfd, &clientsfds);
     FD_SET(STDIN_FILENO, &clientsfds);
 
-    signal(SIGINT, whatsappServer_exit());
+//    signal(SIGINT, whatsappServer_exit());
 
     while (true) {
         readfds = clientsfds;
