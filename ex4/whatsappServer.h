@@ -19,7 +19,7 @@
 
 #define MAXHOSTNAME 30
 #define MAX_PENDING 10
-#define MAX_CLIENTS = 30
+#define MAX_CLIENTS 30
 
 typedef std::pair<const std::string*, int > ClientDesc;
 typedef std::unordered_set<ClientDesc*> Group;
@@ -32,22 +32,14 @@ typedef std::unordered_set<ClientDesc*> Group;
 class WhatsappServer
 {
 public:
-    int sfd;
+    int sockfd;
     struct sockaddr_in* sa;
     struct hostent *hp;
-    unsigned short* portnum;
-    std::vector<ClientDesc>* clients;
-    std::vector<Group>* groups;
-
-//    /**
-//     * Constructs a server
-//     * @param sfd
-//     * @param sa
-//     * @param hp
-//     * @param portnum
-//     * @param clients
-//     */
-//    WhatsappServer(int sfd, struct sockaddr_in& sa, struct hostent& hp, unsigned short& portnum, std::vector<ClientDesc>& clients);
+    unsigned short portnum;
+    bool stillRunning = true;
+//    std::vector<ClientDesc> clients;
+    std::map<const std::string, int> clients;
+    std::vector<Group> groups;
 
     /**
      * Creates a new group named “group_name” with <list_of_client_names>, client, as group members.

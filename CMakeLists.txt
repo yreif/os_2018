@@ -5,22 +5,28 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS -pthread)
 
 
-set(ATOMIC ex3/atomicdemo/atomicdemo.cpp)
-set(BARRIER ex3/barrierdemo/barrierdemo.cpp ex3/barrierdemo/Barrier.cpp ex3/barrierdemo/Barrier.h)
-set(SAMPLE ex3/sampleclient/SampleClient.cpp)
+### ex3 ###
+#set(ATOMIC ex3/atomicdemo/atomicdemo.cpp)
+#
+#set(FRAMEWORK ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
+#        ex3/Barrier.h)
+#
+##set(TEST_2 ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
+##        ex3/Barrier.h ex3/test_2.cpp)
+#
+#set(EUROVISION ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
+#        ex3/Barrier.h )
+#
+#add_executable(atomic_demo ${ATOMIC})
+#add_executable(barrier_demo ${BARRIER})
+#add_executable(sample_client ${FRAMEWORK} ex3/SampleClient.cpp)
+#add_executable(eurovision ${FRAMEWORK} ex3/eurovisionClient.cpp)
+#add_executable(little ${FRAMEWORK} ex3/littleClient.cpp)
+#add_executable(big ${FRAMEWORK} ex3/bigClient.cpp)
 
-set(FRAMEWORK ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
-        ex3/Barrier.h)
+### ex4 ###
+set(WHATSAPP ex4/whatsappServer.cpp ex4/whatsappio.cpp ex4/whatsappClient.cpp)
 
-#set(TEST_2 ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
-#        ex3/Barrier.h ex3/test_2.cpp)
+add_executable(whatsappSerrver ${WHATSAPP})
 
-set(EUROVISION ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
-        ex3/Barrier.h )
-
-add_executable(atomic_demo ${ATOMIC})
-add_executable(barrier_demo ${BARRIER})
-add_executable(sample_client ${FRAMEWORK} ex3/SampleClient.cpp)
-add_executable(eurovision ${FRAMEWORK} ex3/eurovisionClient.cpp)
-add_executable(little ${FRAMEWORK} ex3/littleClient.cpp)
-add_executable(big ${FRAMEWORK} ex3/bigClient.cpp)
+add_executable(tester ex4/test.cpp)
