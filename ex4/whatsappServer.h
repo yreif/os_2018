@@ -5,6 +5,7 @@
 #include "whatsappCommon.h"
 #include <iostream>
 #include <vector>
+#include <algorithm> // for std::find used in vector contains, for std::sort and std::include
 #include <unordered_map>
 #include <cstdio>
 #include <cstdlib>
@@ -27,6 +28,7 @@
 
 typedef std::pair<std::string, int> Client;
 typedef std::unordered_map<std::string, int> Clients;
+typedef std::vector<std::string> ClientsList;
 typedef std::vector<std::string> Group;
 typedef std::unordered_map<std::string, Group> Groups;
 
@@ -35,15 +37,31 @@ typedef std::unordered_map<std::string, Group> Groups;
 //int establish();
 
 inline bool contains(const Clients& clients, const std::string& element) {
-    return clients.find(element) != clients.cend();
+    return clients.find(element) != clients.end();
 }
 
 inline bool contains(const Groups& groups, const std::string& element) {
-    return groups.find(element) != groups.cend();
-
+    return groups.find(element) != groups.end();
 }
+
+inline bool contains(const Group& group, const std::string& element) {
+    return find(group.begin(), group.end(), element) != group.end();
+}
+
+bool subset(Group& group, ClientsList& clientsList) {
+    std::sort(group.begin(), group.end());
+    std::sort(clientsList.begin(), clientsList.end());
+    return std::includes(group.begin(), group.end(), clientsList.begin(), clientsList.end());
+}
+
 inline std::string name(const Client& client) { return client.first; }
 inline int fd(const Client& client) { return client.second; }
+
+void removeGroupDuplicates(Group& group)
+{
+    std::sort(group.begin(), group.end());
+    group.erase(std::unique(group.begin(), group.end()), group.end());
+}
 
 class WhatsappServer {
 public:
@@ -54,6 +72,7 @@ public:
 //    std::vector<ClientDesc> clients;
     Clients clients;
     Groups groups;
+    ClientsList clientsList;
 
     /**
      * Creates a new group named “group_name” with <list_of_client_names>, client, as group members.
@@ -62,7 +81,7 @@ public:
      * @param groupName
      * @param clientsGroup
      */
-    void createGroup(Client &client, const std::string &groupName, const std::vector<std::string> &clientsGroup);
+    void createGroup(Client &client, const std::string &groupName, std::vector<std::string>& clientsGroup);
 
 
     /**

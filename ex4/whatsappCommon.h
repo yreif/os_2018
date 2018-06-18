@@ -11,6 +11,7 @@
 
 static const char SUCCESS = 1;
 static const char NAME_EXISTS = 2;
+static const char FAILURE = 3;
 
 int receiveData(int fd, char *buf, int n) {
     /* counts bytes read */
@@ -50,6 +51,11 @@ int sendData(int fd, const char *buf, int n) { // TODO: make sure this one is ok
 
 int sendSuccessSignal(int fd) {
     return (sendData(fd, &SUCCESS, 1) >= 0) ? 0 : -1;
+
+}
+
+int sendFailureSignal(int fd) {
+    return (sendData(fd, &FAILURE, 1) >= 0) ? 0 : -1;
 
 }
 

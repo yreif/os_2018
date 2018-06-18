@@ -14,25 +14,57 @@ void errorHandler(int ret, const char *sysCall, const char *f) {  // TODO: termi
 }
 
 void WhatsappServer::createGroup(Client& client, const std::string& groupName,
-                                  const Group& group) {
+                                  Group& group) {
     if (contains(clients, groupName) or contains(groups, groupName)) {
         printCreateGroup(true, false, name(client), groupName);
-        sendNameExistsSignal(fd(client));
+        sendNameExistsSignal(fd(client)); // TODO: add error handler
     } else { // TODO: check if name contains illegal stuff
+        group.push_back(name(client));
+        removeGroupDuplicates(group);
+        if (group.size() < 2 or !subset(group, clientsList)) {
+            printCreateGroup(true, false, name(client), groupName);
+            sendFailureSignal(fd(client)); // TODO: add error handler
+        }
         groups[groupName] = group;
         printCreateGroup(true, true, name(client), groupName);
-        sendSuccessSignal(fd(client));
+        sendSuccessSignal(fd(client)); // TODO: add error handler
     }
 }
 
 void WhatsappServer::send(Client& client, const std::string &sendTo, const std::string &message) {
-    if send
+    if (contains(clients, sendTo)) {
+        sendData(clients[sendTo], message.c_str(), (int) message.length()); // TODO: add error handle
+        sendSuccessSignal(fd(client)); // TODO: add error handle
+        printSend(true, true, name(client), sendTo, message);
+    } else if (contains(groups[sendTo], name(client))) {
+        const char * msg = message.c_str();
+        int len = (int) message.length();
+        for (const auto& clientName : groups[sendTo]) {
+            sendData(clients[clientName], msg, len); // TODO: add error handle
+        }
+        sendSuccessSignal(fd(client)); // TODO: add error handle
+        printSend(true, true, name(client), sendTo, message);
+    } else { // client not in group or sendTo doesn't exist
+        sendFailureSignal(fd(client)); // TODO: add error handle
+        printSend(true, false, name(client), sendTo, message);
+    }
 }
 
 void WhatsappServer::who(Client& client) {
+    std::string whoList;
+    printWhoServer(name(client));
+    if (sendData(fd(client), whoList.c_str(), (int) whoList.length()) >= 0) {
+        sendSuccessSignal(fd(client)); // TODO: add error handle
+    } else {
+        sendFailureSignal(fd(client)); // TODO: add error handle
+    }
 }
 
 void WhatsappServer::clientExit(Client& client) {
+    for (auto& group : groups) {
+        group.erase(std::remove(grou)); // map iterator
+    }
+    printClientExit(true, name(client));
 }
 
 int WhatsappServer::exit() { // TODO: terminate all clients, sockets, ...
@@ -50,6 +82,7 @@ void connectNewClient(const WhatsappServer& server)
         sendNameExistsSignal(newSocket);
     } else { // TODO: check if name contains illegal stuff
         server.clients[newClientName] = newSocket;
+        server.clientsList.push_back(newClientName);
         printConnectionServer(newClientName);
         sendSuccessSignal(newSocket);
     }

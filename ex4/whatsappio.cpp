@@ -10,7 +10,7 @@ void printConnection() {
 }
 
 void printConnectionServer(const std::string &client) {
-    printf("%sockfd connected.\n", client.c_str());
+    printf("%s connected.\n", client.c_str());
 }
 
 
@@ -34,18 +34,18 @@ void printCreateGroup(bool server, bool success,
                       const std::string &client, const std::string &group) {
     if(server) {
         if(success) {
-            printf("%sockfd: Group \"%sockfd\" was created successfully.\n",
+            printf("%s: Group \"%s\" was created successfully.\n",
                    client.c_str(), group.c_str());
         } else {
-            printf("%sockfd: ERROR: failed to create group \"%sockfd\"\n",
+            printf("%s: ERROR: failed to create group \"%s\"\n",
                    client.c_str(), group.c_str());
         }
     }
     else {
         if(success) {
-            printf("Group \"%sockfd\" was created successfully.\n", group.c_str());
+            printf("Group \"%s\" was created successfully.\n", group.c_str());
         } else {
-            printf("ERROR: failed to create group \"%sockfd\".\n", group.c_str());
+            printf("ERROR: failed to create group \"%s\".\n", group.c_str());
         }
     }
 }
@@ -54,10 +54,10 @@ void printSend(bool server, bool success, const std::string &client,
                const std::string &name, const std::string &message) {
     if(server) {
         if(success) {
-            printf("%sockfd: \"%sockfd\" was sent successfully to %sockfd.\n",
+            printf("%s: \"%s\" was sent successfully to %s.\n",
                    client.c_str(), message.c_str(), name.c_str());
         } else {
-            printf("%sockfd: ERROR: failed to sendData \"%sockfd\" to %sockfd.\n",
+            printf("%s: ERROR: failed to sendData \"%s\" to %s.\n",
                    client.c_str(), message.c_str(), name.c_str());
         }
     }
@@ -71,18 +71,18 @@ void printSend(bool server, bool success, const std::string &client,
 }
 
 void printMessage(const std::string &client, const std::string &message) {
-    printf("%sockfd: %sockfd\n", client.c_str(), message.c_str());
+    printf("%s: %s\n", client.c_str(), message.c_str());
 }
 
 void printWhoServer(const std::string &client) {
-    printf("%sockfd: Requests the currently connected client names.\n", client.c_str());
+    printf("%s: Requests the currently connected client names.\n", client.c_str());
 }
 
 void printWhoClient(bool success, const std::vector<std::string> &clients) {
     if(success) {
         bool first = true;
         for (const std::string& client: clients) {
-            printf("%sockfd%sockfd", first ? "" : ",", client.c_str());
+            printf("%s%s", first ? "" : ",", client.c_str());
             first = false;
         }
         printf("\n");
@@ -93,7 +93,7 @@ void printWhoClient(bool success, const std::vector<std::string> &clients) {
 
 void printClientExit(bool server, const std::string &client) {
     if(server) {
-        printf("%sockfd: Unregistered successfully.\n", client.c_str());
+        printf("%s: Unregistered successfully.\n", client.c_str());
     } else {
         printf("Unregistered successfully.\n");
     }
@@ -104,7 +104,7 @@ void printInvalidInput() {
 }
 
 void printError(const std::string &function_name, int error_number) {
-    printf("ERROR: %sockfd %d.\n", function_name.c_str(), error_number);
+    printf("ERROR: %s %d.\n", function_name.c_str(), error_number);
 }
 
 void parseCommand(const std::string &command, CommandType &commandT,
