@@ -23,7 +23,7 @@ void printFailedConnection() {
 }
 
 void printServerUsage() {
-    printf("Usage: whatsappServer portNum\n");
+    printf("Usage: whatsappServer portNum (portNum is only digits, [0-9])\n");
 }
 
 void printClientUsage() {
@@ -144,7 +144,7 @@ void parseCommand(const std::string &command, CommandType &commandT,
         }
     } else if(!strcmp(s, "who")) {
         commandT = WHO;
-    } else if(!strcmp(s, "exit")) {
+    } else if(!strcmp(s, "serverExit")) {
         commandT = EXIT;
     } else {
         commandT = INVALID;
