@@ -61,10 +61,13 @@ void WhatsappServer::who(Client& client) {
 }
 
 void WhatsappServer::clientExit(Client& client) {
-    for (auto& group : groups) {
-        group.erase(std::remove(grou)); // map iterator
+    for (auto& groupPair : groups) { // erase client from all groups
+        auto& group = groupPair.second;
+        group.erase(std::remove(group.begin(), group.end(), name(client)), group.end());
     }
-    printClientExit(true, name(client));
+    clientsList.erase(std::remove(clientsList.begin(), clientsList.end(), name(client)), clientsList.end());
+    clients.erase(name(client));
+    printClientExit(true, name(client)); // TODO: who closes the socket?
 }
 
 int WhatsappServer::exit() { // TODO: terminate all clients, sockets, ...
@@ -96,7 +99,7 @@ void serverStdInput(WhatsappServer& server)
     serverStdin = std::string(buf);
     if (serverStdin == "exit") {
         server.exit();
-    }  // TODO: check updates in forum about what to do here
+    }  // otherwise, we ignore the input (according to staff)
 }
 
 void establish(WhatsappServer& server) {
@@ -195,7 +198,6 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
             }
         }
     }
-    return 0;
 }
 
 
