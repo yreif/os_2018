@@ -1,0 +1,8 @@
+hagar.dolev, yuval.reif
+Hagar Dolev (309840841), Yuval Reif (308490234)
+EX: 3
+
+FILES:
+MapReduceFramework.cpp -- an implementation for the MapReduceFramework library.
+Barrier.cpp, Barrier.h -- supplied Barrier implementation
+Makefile -- use make to create the library, and tar for creating a tar.
