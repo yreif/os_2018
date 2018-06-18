@@ -1,20 +1,11 @@
-#include <csignal>
 #include "whatsappServer.h"
 #include "whatsappio.h"
 
-//WhatsappServer::WhatsappServer()
-//{
-//
-//}
+// https://gist.github.com/Alexey-N-Chernyshov/4634731 - look at shutdown_properly and close, peer_t // TODO: remove this before submission
+// https://www.geeksforgeeks.org/socket-programming-in-cc-handling-multiple-clients-on-server-without-multi-threading/ // TODO: remove this before submission
 
-//__sighandler_t whatsappServer_exit();
 
-// https://gist.github.com/Alexey-N-Chernyshov/4634731 - look at shutdown_properly and close, peer_t
-// https://www.geeksforgeeks.org/socket-programming-in-cc-handling-multiple-clients-on-server-without-multi-threading/
-
-#define REQUEST_CLIENT_NAME "0"
-
-void errorHandler(int ret, const char *sysCall, const char *f) {
+void errorHandler(int ret, const char *sysCall, const char *f) {  // TODO: terminate all clients, sockets, ...
     if (ret == 0) {
         return;
     }
@@ -22,78 +13,64 @@ void errorHandler(int ret, const char *sysCall, const char *f) {
     exit(1);
 }
 
-void WhatsappServer::create_group(ClientDesc *client, const std::string &group_name,
-                                  const std::vector<std::string> &clients_group) {
+void WhatsappServer::createGroup(Client& client, const std::string &groupName,
+                                  const std::vector<std::string> &clientsGroup) {
+    if (contains(clients, groupName) or contains(groups, groupName)) {
+        sendNameExistsSignal(fd(client));
+    } else { // TODO: check if name contains illegal stuff
+        
+        sendSuccessSignal(fd(client));
+    }
 }
 
-void WhatsappServer::send(ClientDesc *client, const std::string &send_to, const std::string &message) {
+void WhatsappServer::send(Client& client, const std::string &sendTo, const std::string &message) {
 }
 
-void WhatsappServer::who(ClientDesc *client) {
+void WhatsappServer::who(Client& client) {
 }
 
-void WhatsappServer::client_exit(ClientDesc* client) {
+void WhatsappServer::clientExit(Client& client) {
 }
 
-int WhatsappServer::exit() {
+int WhatsappServer::exit() { // TODO: terminate all clients, sockets, ...
     return 0;
 }
 
 WhatsappServer::~WhatsappServer() = default;
 
-int read_data(int s, char *buf, int n) {
-    /* counts bytes read */
-    int bcount;
-    /* bytes read this pass */
-    int br;
-
-    bcount= 0;
-    br = 0;
-    while (bcount < n) { /* loop until full buffer */
-        br = read(s, buf, n-bcount);
-
-        if (br > 0)
-        {
-            bcount += br;
-            if (buf[bcount] == '\n') {
-                return bcount;
-            }
-        }
-        else if ((br == 0) && (bcount >= 0)) return bcount;
-
-        else if ((br < 1) )
-        {
-            return(-1);
-        }
-
-    }
-    return(bcount);
-}
-
-
 void connectNewClient(const WhatsappServer& server)
 {
     int newSocket; /* socket of connection */
-    errorHandler((t = accept(server.sockfd, NULL, NULL)), "accept", "get_connection");
-    std::string newClientName;
-    errorHandler(send(newSocket, ))
-    errorHandler(read(server.sockfd, buf, WA_MAX_NAME), "couldn't read or nothinf to read", "read_data");
-
-
+    errorHandler((newSocket = accept(server.sockfd, nullptr, nullptr)), "accept", "connectNewClient");
+    char buf[WA_MAX_NAME];
+    errorHandler(receiveData(server.sockfd, buf, WA_MAX_NAME), "read", "connectNewClient");
+    std::string newClientName = std::string(buf);
+    if (contains(server.clients, newClientName) or contains(server.groups, newClientName)) {
+        sendNameExistsSignal(newSocket);
+    } else { // TODO: check if name contains illegal stuff
+        server.clients[newClientName] = newSocket;
+        printConnectionServer(newClientName);
+        sendSuccessSignal(newSocket);
+    }
 }
 
-int get_connection(int s , WhatsappServer* server) {
-    int t; /* socket of connection */
-    errorHandler((t = accept(s, NULL, NULL)), "accept", "get_connection");
-    return t;
+void serverStdInput(WhatsappServer& server)
+{
+    char buf[10];
+    std::string serverStdin;
+    receiveData(STDIN_FILENO, buf, 10);
+    serverStdin = std::string(buf);
+    if (serverStdin == "exit") {
+        server.exit();
+    }  // TODO: check updates in forum about what to do here
 }
 
 void establish(WhatsappServer& server) {
     {
-        char myname[MAXHOSTNAME+1];
+        char myname[MAX_HOSTNAME+1];
 
         /* hostnet initialization */
-        gethostname(myname, MAXHOSTNAME);
+        gethostname(myname, MAX_HOSTNAME);
         server.hp = gethostbyname(myname);
         errorHandler((server.hp == NULL), "gethostbyname", "establish");
 
@@ -122,9 +99,34 @@ void establish(WhatsappServer& server) {
     }
 }
 
-int manage_client(ClientDesc* client) {
-
+void handleClientRequest(WhatsappServer& server, Client& client) {
+    char buf[WA_MAX_MESSAGE]; // TODO: do we need +1 for null terminator? for conversion to string?
+    int clientfd = fd(client);
+    receiveData(clientfd, buf, WA_MAX_MESSAGE); // TODO: add error handling
+    std::string command = std::string(buf);
+    CommandType commandT;
+    std::string name, message;
+    std::vector<std::string> groupClients;
+    parseCommand(command, commandT, name, message, groupClients);
+    switch (commandT) {
+        case CREATE_GROUP:
+            server.createGroup(client, name, groupClients);
+            break;
+        case SEND:
+            server.send(client, name, message);
+            break;
+        case WHO:
+            server.who(client);
+            break;
+        case EXIT:
+            server.clientExit(client);
+            break;
+        case INVALID:
+            std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting
+            break;
+    }
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -138,7 +140,7 @@ int main(int argc, char *argv[])
     FD_SET(server.sockfd, &clientsfds);
     FD_SET(STDIN_FILENO, &clientsfds);
 
-    while (server.stillRunning) {
+    while (true) {
         readfds = clientsfds;
         errorHandler(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select", "main");
 
@@ -148,19 +150,20 @@ int main(int argc, char *argv[])
 
         }
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            serverStdInput();
+            serverStdInput(server);
         }
-        else {
-            // will check each client if it’s in readfds
-            // and then receive a message from him
-            handleClientRequest();
+        else { // will check each client if it’s in readfds and receive it's message
+            for (auto& client : server.clients)
+            {
+                if (FD_ISSET(fd(client) ,&readfds))
+                {
+                    handleClientRequest(server, client);
+                }
+            }
         }
     }
     return 0;
 }
 
-__sighandler_t whatsappServer_exit() {
-    return nullptr;
-}
 
 

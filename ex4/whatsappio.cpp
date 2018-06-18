@@ -9,12 +9,12 @@ void print_connection() {
     printf("Connected Successfully.\n");
 }
 
-void print_connection_server(const std::string& client) {
+void printConnectionServer(const std::string &client) {
     printf("%sockfd connected.\n", client.c_str());
 }
 
 
-void print_dup_connection() {
+void printDupConnection() {
     printf("Client name is already in use.\n");
 }
 
@@ -57,7 +57,7 @@ void print_send(bool server, bool success, const std::string& client,
             printf("%sockfd: \"%sockfd\" was sent successfully to %sockfd.\n",
                    client.c_str(), message.c_str(), name.c_str());
         } else {
-            printf("%sockfd: ERROR: failed to send \"%sockfd\" to %sockfd.\n",
+            printf("%sockfd: ERROR: failed to sendData \"%sockfd\" to %sockfd.\n",
                    client.c_str(), message.c_str(), name.c_str());
         }
     }
@@ -65,7 +65,7 @@ void print_send(bool server, bool success, const std::string& client,
         if(success) {
             printf("Sent successfully.\n");
         } else {
-            printf("ERROR: failed to send.\n");
+            printf("ERROR: failed to sendData.\n");
         }
     }
 }
@@ -107,9 +107,9 @@ void print_error(const std::string& function_name, int error_number) {
     printf("ERROR: %sockfd %d.\n", function_name.c_str(), error_number);
 }
 
-void parse_command(const std::string& command, command_type& commandT, 
-                   std::string& name, std::string& message, 
-                   std::vector<std::string>& clients) {
+void parseCommand(const std::string &command, CommandType &commandT,
+                  std::string &name, std::string &message,
+                  std::vector<std::string> &clients) {
     char c[WA_MAX_INPUT];
     const char *s; 
     char *saveptr;
@@ -120,7 +120,7 @@ void parse_command(const std::string& command, command_type& commandT,
     strcpy(c, command.c_str());
     s = strtok_r(c, " ", &saveptr);
     
-    if(!strcmp(s, "create_group")) {
+    if(!strcmp(s, "createGroup")) {
         commandT = CREATE_GROUP;
         s = strtok_r(NULL, " ", &saveptr);
         if(!s) {
@@ -132,7 +132,7 @@ void parse_command(const std::string& command, command_type& commandT,
                 clients.emplace_back(s);
             }
         }
-    } else if(!strcmp(s, "send")) {
+    } else if(!strcmp(s, "sendData")) {
         commandT = SEND;
         s = strtok_r(NULL, " ", &saveptr);
         if(!s) {
@@ -140,7 +140,7 @@ void parse_command(const std::string& command, command_type& commandT,
             return;
         } else {
             name = s;
-            message = command.substr(name.size() + 6); // 6 = 2 spaces + "send"
+            message = command.substr(name.size() + 6); // 6 = 2 spaces + "sendData"
         }
     } else if(!strcmp(s, "who")) {
         commandT = WHO;

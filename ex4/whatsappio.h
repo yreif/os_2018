@@ -10,7 +10,7 @@
 #define WA_MAX_GROUP 50
 #define WA_MAX_INPUT ((WA_MAX_NAME+1)*(WA_MAX_GROUP+2))
 
-enum command_type {CREATE_GROUP, SEND, WHO, EXIT, INVALID};
+enum CommandType {CREATE_GROUP, SEND, WHO, EXIT, INVALID};
 
 /**
  * Description: Prints to the screen a message when the user terminate the
@@ -29,13 +29,13 @@ void print_connection();
  * connection to the server, in the server
  * client: Name of the sender
 */
-void print_connection_server(const std::string& client);
+void printConnectionServer(const std::string &client);
 
 /**
  * Description: Prints to the screen a message when the client tries to
  * use a name which is already in use
 */
-void print_dup_connection();
+void printDupConnection();
 
 /**
  * Description: Prints to the screen a message when the client fails to
@@ -118,6 +118,7 @@ void print_error(const std::string& function_name, int error_number);
  * message: The message
  * clients: a vector containing the names of all clients
 */
-void parse_command(const std::string& command, command_type& commandT, std::string& name, std::string& messsage, std::vector<std::string>& clients);
+void parseCommand(const std::string &command, CommandType &commandT, std::string &name, std::string &messsage,
+                  std::vector<std::string> &clients);
 
 #endif

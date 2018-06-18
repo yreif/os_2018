@@ -1,12 +1,14 @@
 #ifndef _WHATSAPPCLIENT_H
 #define _WHATSAPPCLIENT_H
 
-#include "whatsappio.h"
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <cstring>
 #include <string>
 #include <vector>
+#include "whatsappCommon.h"
+#include "whatsappio.h"
+
 
 class WhatsappClient
 {
