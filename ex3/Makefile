@@ -1,4 +1,3 @@
-
 CC=g++
 CXX=g++
 RANLIB=ranlib
@@ -16,7 +15,7 @@ TARGETS = $(LIB)
 TAR=tar
 TARFLAGS=-cvf
 TARNAME=ex3.tar
-TARSRCS=$(LIBSRC) Barrier.h Makefile README
+TARSRCS=$(LIBSRC) Makefile README
 
 all: $(TARGETS)
 

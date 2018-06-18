@@ -1,16 +1,32 @@
 cmake_minimum_required(VERSION 3.8)
-project(os_ex2)
+project(os_2018)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS -pthread)
 
-set(SOURCE_FILES uthreads.cpp uthreads.h)
-add_executable(test1 ${SOURCE_FILES} test1.cpp)
-add_executable(test2 ${SOURCE_FILES} test2.cpp)
-add_executable(test5 ${SOURCE_FILES} test5fixed.cpp)
-add_executable(test14 ${SOURCE_FILES} test14.cpp)
-add_executable(test42 ${SOURCE_FILES} test42.cpp)
-add_executable(test132 ${SOURCE_FILES} test132.cpp)
-add_executable(test429 ${SOURCE_FILES} test429.cpp)
-add_executable(test1430 ${SOURCE_FILES} test1430.cpp)
 
-add_executable(demo_jmp demo_jmp.c)
+### ex3 ###
+#set(ATOMIC ex3/atomicdemo/atomicdemo.cpp)
+#
+#set(FRAMEWORK ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
+#        ex3/Barrier.h)
+#
+##set(TEST_2 ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
+##        ex3/Barrier.h ex3/test_2.cpp)
+#
+#set(EUROVISION ex3/MapReduceFramework.cpp ex3/MapReduceFramework.h ex3/MapReduceClient.h ex3/Barrier.cpp
+#        ex3/Barrier.h )
+#
+#add_executable(atomic_demo ${ATOMIC})
+#add_executable(barrier_demo ${BARRIER})
+#add_executable(sample_client ${FRAMEWORK} ex3/SampleClient.cpp)
+#add_executable(eurovision ${FRAMEWORK} ex3/eurovisionClient.cpp)
+#add_executable(little ${FRAMEWORK} ex3/littleClient.cpp)
+#add_executable(big ${FRAMEWORK} ex3/bigClient.cpp)
+
+### ex4 ###
+set(WHATSAPP ex4/whatsappServer.cpp ex4/whatsappio.cpp ex4/whatsappClient.cpp ex4/whatsappCommon.h)
+
+add_executable(whatsappSerrver ${WHATSAPP})
+
+add_executable(tester ex4/test.cpp)

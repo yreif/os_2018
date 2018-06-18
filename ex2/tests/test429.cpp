@@ -20,7 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <time.h>
-#include "uthreads.h"
+#include "../uthreads.h"
 
 
 #define GRN "\e[32m"
