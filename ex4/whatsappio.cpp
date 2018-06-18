@@ -1,6 +1,8 @@
 #include "whatsappio.h"
 #include <cstdio>
 
+
+
 void printServerExit() {
     printf("EXIT command is typed: server is shutting down\n");
 }
@@ -10,7 +12,7 @@ void printConnection() {
 }
 
 void printConnectionServer(const std::string &client) {
-    printf("%sockfd connected.\n", client.c_str());
+    printf("%s connected.\n", client.c_str());
 }
 
 
@@ -23,7 +25,7 @@ void printFailedConnection() {
 }
 
 void printServerUsage() {
-    printf("Usage: whatsappServer portNum\n");
+    printf("Usage: whatsappServer portNum (portNum is only digits, [0-9])\n");
 }
 
 void printClientUsage() {
