@@ -220,13 +220,12 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
             }
             if (FD_ISSET(STDIN_FILENO, &readfds)) {
                 serverStdInput(server);
-        }
-        else { // will check each client if it’s in readfds and receive it's message
-            for (auto& client : server.clients)
-            {
-                if (FD_ISSET(fd(client) ,&readfds))
-                {
-                    handleClientRequest(server, client);
+            }
+            else { // will check each client if it’s in readfds and receive it's message
+                for (auto& client : server.clients) {
+                    if (FD_ISSET(fd(client), &readfds)) {
+                        handleClientRequest(server, client);
+                    }
                 }
             }
         }
