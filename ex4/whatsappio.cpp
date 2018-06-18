@@ -1,6 +1,7 @@
 #include "whatsappio.h"
 #include <cstdio>
 
+
 void printServerExit() {
     printf("EXIT command is typed: server is shutting down\n");
 }
