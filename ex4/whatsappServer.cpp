@@ -13,17 +13,20 @@ void errorHandler(int ret, const char *sysCall, const char *f) {  // TODO: termi
     exit(1);
 }
 
-void WhatsappServer::createGroup(Client& client, const std::string &groupName,
-                                  const std::vector<std::string> &clientsGroup) {
+void WhatsappServer::createGroup(Client& client, const std::string& groupName,
+                                  const Group& group) {
     if (contains(clients, groupName) or contains(groups, groupName)) {
+        printCreateGroup(true, false, name(client), groupName);
         sendNameExistsSignal(fd(client));
     } else { // TODO: check if name contains illegal stuff
-        
+        groups[groupName] = group;
+        printCreateGroup(true, true, name(client), groupName);
         sendSuccessSignal(fd(client));
     }
 }
 
 void WhatsappServer::send(Client& client, const std::string &sendTo, const std::string &message) {
+    if send
 }
 
 void WhatsappServer::who(Client& client) {
@@ -35,8 +38,6 @@ void WhatsappServer::clientExit(Client& client) {
 int WhatsappServer::exit() { // TODO: terminate all clients, sockets, ...
     return 0;
 }
-
-WhatsappServer::~WhatsappServer() = default;
 
 void connectNewClient(const WhatsappServer& server)
 {
@@ -100,57 +101,56 @@ void establish(WhatsappServer& server) {
 }
 
 void handleClientRequest(WhatsappServer& server, Client& client) {
-    char buf[WA_MAX_MESSAGE]; // TODO: do we need +1 for null terminator? for conversion to string?
-    int clientfd = fd(client);
-    receiveData(clientfd, buf, WA_MAX_MESSAGE); // TODO: add error handling
+    char buf[WA_MAX_INPUT]; // TODO: do we need +1 for null terminator? for conversion to string?
+    receiveData(fd(client), buf, WA_MAX_INPUT); // TODO: add error handling
     std::string command = std::string(buf);
     CommandType commandT;
     std::string name, message;
-    std::vector<std::string> groupClients;
-    parseCommand(command, commandT, name, message, groupClients);
+    Group group;
+    parseCommand(command, commandT, name, message, group);
     switch (commandT) {
-        case CREATE_GROUP:
-            server.createGroup(client, name, groupClients);
+            case CREATE_GROUP:
+                server.createGroup(client, name, group);
             break;
-        case SEND:
-            server.send(client, name, message);
+            case SEND:
+                server.send(client, name, message);
             break;
-        case WHO:
-            server.who(client);
+            case WHO:
+                server.who(client);
             break;
-        case EXIT:
-            server.clientExit(client);
+            case EXIT:
+                server.clientExit(client);
             break;
-        case INVALID:
-            std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting
+            case INVALID:
+                std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting
             break;
+        }
     }
-}
 
 
-int main(int argc, char *argv[])
-{
+    int main(int argc, char *argv[])
+    {
 //    std::vector<ClientDesc> clients; TODO: Yuval to Hagar - These are created when the server is initialized
 //    std::vector<Group> groups;
-    auto server = WhatsappServer();
-    establish(server);
-    fd_set clientsfds;
-    fd_set readfds;
-    FD_ZERO(&clientsfds);
-    FD_SET(server.sockfd, &clientsfds);
-    FD_SET(STDIN_FILENO, &clientsfds);
+        auto server = WhatsappServer();
+        establish(server);
+        fd_set clientsfds;
+        fd_set readfds;
+        FD_ZERO(&clientsfds);
+        FD_SET(server.sockfd, &clientsfds);
+        FD_SET(STDIN_FILENO, &clientsfds);
 
-    while (true) {
-        readfds = clientsfds;
-        errorHandler(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select", "main");
+        while (true) {
+            readfds = clientsfds;
+            errorHandler(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select", "main");
 
-        // if something happened on the master socket then it's an incoming connection
-        if (FD_ISSET(server.sockfd, &readfds)) {
-            connectNewClient(server); // will also add the client to the clientsfds
+            // if something happened on the master socket then it's an incoming connection
+            if (FD_ISSET(server.sockfd, &readfds)) {
+                connectNewClient(server); // will also add the client to the clientsfds
 
-        }
-        if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            serverStdInput(server);
+            }
+            if (FD_ISSET(STDIN_FILENO, &readfds)) {
+                serverStdInput(server);
         }
         else { // will check each client if it’s in readfds and receive it's message
             for (auto& client : server.clients)

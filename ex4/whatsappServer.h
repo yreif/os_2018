@@ -45,8 +45,7 @@ inline bool contains(const Groups& groups, const std::string& element) {
 inline std::string name(const Client& client) { return client.first; }
 inline int fd(const Client& client) { return client.second; }
 
-class WhatsappServer
-{
+class WhatsappServer {
 public:
     int sockfd;
     struct sockaddr_in* sa;
@@ -90,10 +89,6 @@ public:
     void clientExit(Client &client);
 
     int exit();
-
-
-    ~WhatsappServer();
-
 };
 
 

@@ -16,13 +16,13 @@ enum CommandType {CREATE_GROUP, SEND, WHO, EXIT, INVALID};
  * Description: Prints to the screen a message when the user terminate the
  * server
 */
-void print_exit();
+void printServerExit();
 
 /**
  * Description: Prints to the screen a message when the client established
  * connection to the server, in the client
 */
-void print_connection();
+void printConnection();
 
 /**
  * Description: Prints to the screen a message when the client established
@@ -41,17 +41,17 @@ void printDupConnection();
  * Description: Prints to the screen a message when the client fails to
  * establish connection to the server
 */
-void print_fail_connection();
+void printFailedConnection();
 
 /**
  * Description: Prints to the screen the usage message of the server
 */
-void print_server_usage();
+void printServerUsage();
 
 /**
  * Description: Prints to the screen the usage message of the client
 */
-void print_client_usage();
+void printClientUsage();
 
 /**
  * Description: Prints to the screen the messages of "create_group" command
@@ -60,7 +60,7 @@ void print_client_usage();
  * client: Client name
  * group: Group name
 */
-void print_create_group(bool server, bool success, const std::string& client, const std::string& group);
+void printCreateGroup(bool server, bool success, const std::string &client, const std::string &group);
 
 /**
  * Description: Prints to the screen the messages of "send" command
@@ -70,44 +70,45 @@ void print_create_group(bool server, bool success, const std::string& client, co
  * name: Name of the client/group destination of the message
  * message: The message
 */
-void print_send(bool server, bool success, const std::string& client, const std::string& name, const std::string& message);
+void printSend(bool server, bool success, const std::string &client, const std::string &name,
+               const std::string &message);
 
 /**
  * Description: Prints to the screen the messages recieved by the client
  * client: Name of the sender
  * message: The message
 */
-void print_message(const std::string& client, const std::string& message);
+void printMessage(const std::string &client, const std::string &message);
 
 /**
  * Description: Prints to the screen the messages of "who" command in the server
  * client: Name of the sender
 */
-void print_who_server(const std::string& client);
+void printWhoServer(const std::string &client);
 
 /**
  * Description: Prints to the screen the messages of "who" command in the client
  * success: Whether the operation was successful
  * clients: a vector containing the names of all clients
 */
-void print_who_client(bool success, const std::vector<std::string>& clients);
+void printWhoClient(bool success, const std::vector<std::string> &clients);
 
 /**
  * Description: Prints to the screen the messages of "exit" command
  * server: true for server, false for client
  * client: Client name
 */
-void print_exit(bool server, const std::string& client);
+void printClientExit(bool server, const std::string &client);
 
 /**
  * Description: Prints to the screen the messages of invalid command
 */
-void print_invalid_input();
+void printInvalidInput();
 
 /**
  * Description: Prints to the screen the messages of system-call error
 */
-void print_error(const std::string& function_name, int error_number);
+void printError(const std::string &function_name, int error_number);
 
 /**
  * Description: Parse user input from the argument "command". The other arguments

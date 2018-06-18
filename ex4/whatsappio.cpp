@@ -1,11 +1,11 @@
 #include "whatsappio.h"
 #include <cstdio>
 
-void print_exit() {
+void printServerExit() {
     printf("EXIT command is typed: server is shutting down\n");
 }
 
-void print_connection() {
+void printConnection() {
     printf("Connected Successfully.\n");
 }
 
@@ -18,20 +18,20 @@ void printDupConnection() {
     printf("Client name is already in use.\n");
 }
 
-void print_fail_connection() {
+void printFailedConnection() {
     printf("Failed to connect the server\n");
 }
 
-void print_server_usage() {
+void printServerUsage() {
     printf("Usage: whatsappServer portNum\n");
 }
 
-void print_client_usage() {
+void printClientUsage() {
     printf("Usage: whatsappClient clientName serverAddress serverPort\n");
 }
 
-void print_create_group(bool server, bool success, 
-                        const std::string& client, const std::string& group) {
+void printCreateGroup(bool server, bool success,
+                      const std::string &client, const std::string &group) {
     if(server) {
         if(success) {
             printf("%sockfd: Group \"%sockfd\" was created successfully.\n",
@@ -50,8 +50,8 @@ void print_create_group(bool server, bool success,
     }
 }
 
-void print_send(bool server, bool success, const std::string& client, 
-                const std::string& name, const std::string& message) {
+void printSend(bool server, bool success, const std::string &client,
+               const std::string &name, const std::string &message) {
     if(server) {
         if(success) {
             printf("%sockfd: \"%sockfd\" was sent successfully to %sockfd.\n",
@@ -70,15 +70,15 @@ void print_send(bool server, bool success, const std::string& client,
     }
 }
 
-void print_message(const std::string& client, const std::string& message) {
+void printMessage(const std::string &client, const std::string &message) {
     printf("%sockfd: %sockfd\n", client.c_str(), message.c_str());
 }
 
-void print_who_server(const std::string& client) {
+void printWhoServer(const std::string &client) {
     printf("%sockfd: Requests the currently connected client names.\n", client.c_str());
 }
 
-void print_who_client(bool success, const std::vector<std::string>& clients) {
+void printWhoClient(bool success, const std::vector<std::string> &clients) {
     if(success) {
         bool first = true;
         for (const std::string& client: clients) {
@@ -91,7 +91,7 @@ void print_who_client(bool success, const std::vector<std::string>& clients) {
     }
 }
 
-void print_exit(bool server, const std::string& client) {
+void printClientExit(bool server, const std::string &client) {
     if(server) {
         printf("%sockfd: Unregistered successfully.\n", client.c_str());
     } else {
@@ -99,11 +99,11 @@ void print_exit(bool server, const std::string& client) {
     }
 }
 
-void print_invalid_input() {
+void printInvalidInput() {
     printf("ERROR: Invalid input.\n");
 }
 
-void print_error(const std::string& function_name, int error_number) {
+void printError(const std::string &function_name, int error_number) {
     printf("ERROR: %sockfd %d.\n", function_name.c_str(), error_number);
 }
 
