@@ -68,10 +68,9 @@ void WhatsappServer::who(Client& client) {
         whoList += client;
         whoList += ',';
     }
-    printWhoServer(name(client));
+    printWhoServer(name(client)); // TODO: what is the protocol here?
     if (error(sendData(fd(client), whoList.c_str(), (int) whoList.length()), "write")) {
         error(sendFailureSignal(fd(client)), "write");
-
     } else {
         error(sendSuccessSignal(fd(client)), "write");
     }
