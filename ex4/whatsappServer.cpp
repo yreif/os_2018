@@ -222,15 +222,15 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
                 serverStdInput(server);
             }
             else { // will check each client if it’s in readfds and receive it's message
-                for (auto& client : server.clients)
-                {
-                    if (FD_ISSET(fd(client) ,&readfds))
-                    {
+                for (auto& client : server.clients) {
+                    if (FD_ISSET(fd(client), &readfds)) {
                         handleClientRequest(server, client);
                     }
                 }
             }
+        }
     }
 }
+
 
 
