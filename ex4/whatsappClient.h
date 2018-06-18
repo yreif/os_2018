@@ -13,6 +13,12 @@
 class WhatsappClient
 {
 public:
+    int sockfd;
+    struct sockaddr_in* servera;
+    struct hostent *hp;
+    unsigned short portnum;
+    char * name;
+
     /**
      * sends request to create a new group named “group_name” with <list_of_client_names> as group members.
      * “group_name” is unique (i.e. no other ​ group or client​ with this name is allowed) and includes only letters and digits.

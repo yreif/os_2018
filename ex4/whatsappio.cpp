@@ -10,7 +10,7 @@ void printConnection() {
 }
 
 void printConnectionServer(const std::string &client) {
-    printf("%s connected.\n", client.c_str());
+    printf("%sockfd connected.\n", client.c_str());
 }
 
 
@@ -23,7 +23,7 @@ void printFailedConnection() {
 }
 
 void printServerUsage() {
-    printf("Usage: whatsappServer portNum (portNum is only digits, [0-9])\n");
+    printf("Usage: whatsappServer portNum\n");
 }
 
 void printClientUsage() {
