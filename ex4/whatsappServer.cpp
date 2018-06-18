@@ -71,7 +71,7 @@ void establish(WhatsappServer& server) {
         char myname[MAX_HOSTNAME+1];
 
         /* hostnet initialization */
-        gethostname(myname, MAX_HOSTNAME);
+        gethostname(myname, MAX_HOSTNAME); //TODO: not sure if needed, also need to check and transfer address types.
         server.hp = gethostbyname(myname);
         errorHandler((server.hp == NULL), "gethostbyname", "establish");
 
@@ -151,19 +151,18 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
             }
             if (FD_ISSET(STDIN_FILENO, &readfds)) {
                 serverStdInput(server);
-        }
-        else { // will check each client if it’s in readfds and receive it's message
-            for (auto& client : server.clients)
-            {
-                if (FD_ISSET(fd(client) ,&readfds))
+            }
+            else { // will check each client if it’s in readfds and receive it's message
+                for (auto& client : server.clients)
                 {
-                    handleClientRequest(server, client);
+                    if (FD_ISSET(fd(client) ,&readfds))
+                    {
+                        handleClientRequest(server, client);
+                    }
                 }
             }
-        }
     }
     return 0;
 }
-
 
 

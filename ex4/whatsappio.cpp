@@ -23,7 +23,7 @@ void printFailedConnection() {
 }
 
 void printServerUsage() {
-    printf("Usage: whatsappServer portNum\n");
+    printf("Usage: parseCommandwhatsappServer portNum\n");
 }
 
 void printClientUsage() {
