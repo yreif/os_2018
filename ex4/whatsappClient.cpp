@@ -71,11 +71,14 @@ void WhatsappClient::send(const std::string &send_to, const std::string &message
 }
 //
 void WhatsappClient::who(const std::string &command) {
-//    sendData(sockfd, command.c_str(), int(command.size()));
-//    char response;
-//    if (recv(sockfd, &response, sizeof(response), 0) != 1){
-//        //TODO: ERROR
-//    } else {
+    sendData(sockfd, command.c_str(), int(command.size()));
+    std::string who(WA_MAX_INPUT,'');
+    if (recv(sockfd, &who, WA_MAX_INPUT, 0) != 1){
+        //TODO: ERROR
+    } else {
+        //TODO: is that enough?
+        printf(who.c_str());
+
 //        switch (response) {
 //            case SUCCESS:
 //
@@ -85,7 +88,7 @@ void WhatsappClient::who(const std::string &command) {
 //                printSend(false, false, name, send_to, message);
 //                break;
 //        }
-//    }
+    }
 }
 
 
@@ -100,7 +103,7 @@ void WhatsappClient::exit_client(const std::string &command) {
 WhatsappClient initialization(int argc, char *av[]) {
     if (argc != 4)
     {
-        std::cerr << "WhatsappClient: invalid call, to initialize call: whatsappClient clientName serverAddress serverPort" << std::endl;
+        printClientUsage();
 
     }
     else
@@ -117,7 +120,6 @@ WhatsappClient initialization(int argc, char *av[]) {
         memset(client.servera, 0, sizeof(struct sockaddr_in));
         /* Getting the ip address*/
         struct hostent *hp;
-        int s;
         if ((hp = gethostbyname (av[2])) == NULL) {
             return(-1); //TODO: errors
         }
@@ -172,27 +174,52 @@ int main(int argc, char *argv[])
     std::string message;
     std::vector<std::string> clients(0);
 
-    while (true) {
-        std::istream::get(curr_command, '\n'); //TODO: handle this bitch
-        parseCommand(curr_command, commandT, name, message, clients);
+    fd_set clientfds;
+    fd_set readfds;
+    FD_ZERO(&clientfds);
+    FD_SET(client.sockfd, &clientfds);
+    FD_SET(STDIN_FILENO, &clientfds);
 
-        switch (commandT) {
-            case CREATE_GROUP:
-                client.create_group(name, clients, curr_command);
-                break;
-            case SEND:
-                client.send(name, message, curr_command);
-                break;
-            case WHO:
-                client.who(curr_command);
-                break;
-            case EXIT:
-                client.exit_client(curr_command);
-                break;
-            case INVALID:
-                std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting
-                break;
+    while (true) {
+        readfds = clientfds;
+        if (error(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select")) continue;
+
+        // if something happened on the server socket then it's an incoming message or exit process
+        if (FD_ISSET(client.sockfd, &readfds)) {
+            std::istream::get(curr_command, '\n'); //TODO: handle this bitch
+            if (!strcmp(curr_command.c_str(), &SERVER_EXIT)){
+                close(client.sockfd);
+                printClientExit(false, name);
+                exit(1);
+
+            } else if ((!strcmp(curr_command.c_str(), "SEND:\n")) || (!strcmp(curr_command.c_str(), "SEND:"))){
+                std::istream::get(curr_command, '\n');//TODO: handle this bitch
+                printf(curr_command.c_str());
+
+            }
         }
+        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+            std::istream::get(curr_command, '\n'); //TODO: handle this bitch
+            parseCommand(curr_command, commandT, name, message, clients);
+
+            switch (commandT) {
+                case CREATE_GROUP:
+                    client.create_group(name, clients, curr_command);
+                    break;
+                case SEND:
+                    client.send(name, message, curr_command);
+                    break;
+                case WHO:
+                    client.who(curr_command);
+                    break;
+                case EXIT:
+                    client.exit_client(curr_command);
+                    break;
+                case INVALID:
+                    std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting
+                    break;
+            }        }
     }
+
     return 0;
 }

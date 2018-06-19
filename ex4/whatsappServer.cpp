@@ -35,8 +35,8 @@ void WhatsappServer::createGroup(Client& client, const std::string& groupName,
 }
 
 void WhatsappServer::send(Client& client, const std::string &sendTo, const std::string &message) {
-    if (contains(clients, sendTo)) {
-        if (error(sendData(clients[sendTo], message.c_str(), (int) message.length()), "write")) {
+    if (contains(clients, sendTo)) { //TODO: Hagar changed below for compliance
+        if (error(sendData(clients[sendTo], ("SEND:\n" + name(client) + ": " + message).c_str(), (int) message.length()), "write")) {
             error(sendFailureSignal(fd(client)), "write");
             printSend(true, false, name(client), sendTo, message);
             return;
