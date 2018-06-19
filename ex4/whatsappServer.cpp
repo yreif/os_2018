@@ -129,7 +129,7 @@ void establish(WhatsappServer& server) {
         char myname[MAX_HOSTNAME+1];
 
         /* hostnet initialization */
-        gethostname(myname, MAX_HOSTNAME);
+        gethostname(myname, MAX_HOSTNAME); //TODO: not sure if needed, also need to check and transfer address types.
         server.hp = gethostbyname(myname);
         if (error((server.hp == NULL), "gethostbyname")) return;
 
@@ -186,51 +186,51 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
             case INVALID:
                 std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting
                 break;
+        }
     }
-}
 
 
 int main(int argc, char *argv[])
-{
-    if (argc != 2) {
-        printServerUsage();
-        return 0;
-    }
-    unsigned short portnum;
-    if (!toUnsignedShort(argv[1], portnum)) {
-        printServerUsage();
-        return 0;
-    }
-    auto server = WhatsappServer(portnum);
-    establish(server);
-    fd_set clientsfds;
-    fd_set readfds;
-    FD_ZERO(&clientsfds);
-    FD_SET(server.sockfd, &clientsfds);
-    FD_SET(STDIN_FILENO, &clientsfds);
-
-    while (true) {
-        readfds = clientsfds;
-        if (error(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select")) continue;
-
-        // if something happened on the master socket then it's an incoming connection
-        if (FD_ISSET(server.sockfd, &readfds)) {
-            connectNewClient(server); // will also add the client to the clientsfds
-
+    {
+        if (argc != 2) {
+            printServerUsage();
+            return 0;
         }
-        if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            serverStdInput(server);
+        unsigned short portnum;
+        if (!toUnsignedShort(argv[1], portnum)) {
+            printServerUsage();
+            return 0;
         }
-        else { // will check each client if it’s in readfds and receive it's message
-            for (auto& client : server.clients) {
-                if (FD_ISSET(fd(client), &readfds)) {
-                    handleClientRequest(server, client);
+        auto server = WhatsappServer(portnum);
+        establish(server);
+        fd_set clientsfds;
+        fd_set readfds;
+        FD_ZERO(&clientsfds);
+        FD_SET(server.sockfd, &clientsfds);
+        FD_SET(STDIN_FILENO, &clientsfds);
+
+        while (true) {
+            readfds = clientsfds;
+            if (error(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select")) continue;
+
+            // if something happened on the master socket then it's an incoming connection
+            if (FD_ISSET(server.sockfd, &readfds)) {
+                connectNewClient(server); // will also add the client to the clientsfds
+
+            }
+            if (FD_ISSET(STDIN_FILENO, &readfds)) {
+                serverStdInput(server);
+            }
+            else { // will check each client if it’s in readfds and receive it's message
+                for (auto& client : server.clients)
+                {
+                    if (FD_ISSET(fd(client) ,&readfds))
+                    {
+                        handleClientRequest(server, client);
+                    }
                 }
             }
-        }
     }
 }
-
-
 
 

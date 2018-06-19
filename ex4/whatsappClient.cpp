@@ -4,32 +4,6 @@
 #include "whatsappServer.h"
 
 
-void errorHandler(int ret, const char *sysCall, const char *f) {  // TODO: terminate all clients, sockets, ...
-    if (ret == 0) {
-        return;
-    }
-    std::cerr << "Server: error in " << sysCall << " during " << f << std::endl;
-    exit(1);
-}
-
-
-void WhatsappClient::create_group(const std::string &group_name, const std::vector<std::string> &clients_group) {
-
-}
-
-void WhatsappClient::send(const std::string &send_to, const std::string &message) {
-
-}
-
-void WhatsappClient::who() {
-
-}
-
-void WhatsappClient::exit() {
-
-}
-
-
 bool vlidate_name(const std::string &name) {
     for (const char &c : name){
         if (std::isalnum(c)==0) {
@@ -39,6 +13,90 @@ bool vlidate_name(const std::string &name) {
     return true;
 }
 
+
+void errorHandler(int ret, const char *sysCall, const char *f) {  // TODO: terminate all clients, sockets, ...
+    if (ret == 0) {
+        return;
+    }
+    std::cerr << "Server: error in " << sysCall << " during " << f << std::endl;
+    exit(1);
+}
+
+
+void WhatsappClient::create_group(const std::string &group_name, const std::vector<std::string> &clients_group, const std::string &command) {
+    if (vlidate_name(group_name)){
+        for (int i = 0; i < clients_group.size(); ++i) {
+            if (!vlidate_name(clients_group[i])){
+                printInvalidInput();
+                //TODO: validity error
+            }
+        }
+        sendData(sockfd, command.c_str(), int(command.size()));
+        char response;
+        if (recv(sockfd, &response, sizeof(response), 0) != 1){
+            //TODO: ERROR
+        }
+
+        switch (response) {
+            case SUCCESS:
+                printCreateGroup(false, true, name, group_name);
+                break;
+            case NAME_EXISTS:
+                printCreateGroup(false, false, name, group_name);
+        }
+    } else {
+        //TODO: validity error
+    }
+}
+//
+void WhatsappClient::send(const std::string &send_to, const std::string &message,  const std::string &command) {
+    if (!vlidate_name(send_to)){
+        printInvalidInput();
+    } else{
+        sendData(sockfd, command.c_str(), int(command.size()));
+        char response;
+        if (recv(sockfd, &response, sizeof(response), 0) != 1){
+            //TODO: ERROR
+        } else {
+            switch (response) {
+                case SUCCESS:
+                    printSend(false, true, name, send_to, message);
+                    break;
+                case FAILURE:
+                    printSend(false, false, name, send_to, message);
+                    break;
+            }
+        }
+    }
+}
+//
+void WhatsappClient::who(const std::string &command) {
+//    sendData(sockfd, command.c_str(), int(command.size()));
+//    char response;
+//    if (recv(sockfd, &response, sizeof(response), 0) != 1){
+//        //TODO: ERROR
+//    } else {
+//        switch (response) {
+//            case SUCCESS:
+//
+//                printSend(false, true, name, send_to, message);
+//                break;
+//            case FAILURE:
+//                printSend(false, false, name, send_to, message);
+//                break;
+//        }
+//    }
+}
+
+
+void WhatsappClient::exit_client(const std::string &command) {
+    sendData(sockfd, command.c_str(), int(command.size()));
+    close(sockfd);
+    printClientExit(false, name);
+    exit(1);
+}
+
+
 WhatsappClient initialization(int argc, char *av[]) {
     if (argc != 4)
     {
@@ -47,8 +105,12 @@ WhatsappClient initialization(int argc, char *av[]) {
     }
     else
     {
-        vlidate_name(av[1]); //TODO: improve!!
+        if (!vlidate_name(av[1])){
+            printInvalidInput();
+            return(-1); //TODO: errors
+        } //TODO: improve!!
         WhatsappClient client;
+        client.name = av[1];
 
 
         /* sockaddrr_in initialization */
@@ -63,16 +125,36 @@ WhatsappClient initialization(int argc, char *av[]) {
         client.servera->sin_family = hp->h_addrtype;
         client.servera->sin_port = htons((u_short)std::stoi(av[3]));
 
-        if ((client.sockfd = socket(hp->h_addrtype, SOCK_STREAM,0))
-            < 0) {
+        if ((client.sockfd = socket(hp->h_addrtype, SOCK_STREAM,0)) < 0)
+        {
             return(-1);//TODO: errors
         }
 
-        if (connect(client.sockfd, (struct sockaddr *)&client.servera , sizeof(client.servera)) < 0) {
+        if (connect(client.sockfd, (struct sockaddr *)&client.servera , sizeof(client.servera)) < 0)
+        {
+            printFailedConnection();
+
             close(client.sockfd);
             return(-1);//TODO: errors
         }
 
+        sendData(client.sockfd, client.name, sizeof(client.name));
+        char response;
+        if (recv(client.sockfd, &response, sizeof(response), 0) != 1){
+            //TODO: ERROR
+        } else {
+            switch (response) {
+                case SUCCESS:
+                    printConnection();
+                    break;
+                case FAILURE:
+                    printFailedConnection();
+                    break;
+                case NAME_EXISTS:
+                    printDupConnection();
+                    break;
+            }
+        }
         //TODO: writename, approvl...
         return client;
 
@@ -96,16 +178,16 @@ int main(int argc, char *argv[])
 
         switch (commandT) {
             case CREATE_GROUP:
-                client.createGroup(client, name, group);
+                client.create_group(name, clients, curr_command);
                 break;
             case SEND:
-                client.send(client, name, message);
+                client.send(name, message, curr_command);
                 break;
             case WHO:
-                client.who(client);
+                client.who(curr_command);
                 break;
             case EXIT:
-                client.clientExit(client);
+                client.exit_client(curr_command);
                 break;
             case INVALID:
                 std::cout << "BUG: client sent invalid command" << std::endl; // client sent invalid command - bug TODO: remove before submitting

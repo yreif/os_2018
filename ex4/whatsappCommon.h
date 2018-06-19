@@ -50,7 +50,7 @@ int sendData(int fd, const char *buf, int n) { // TODO: make sure this one is ok
     /* bytes read this pass */
     int br = 0;
     while (bcount < n) { /* loop until full buffer */
-        br = write(fd, buf, n-bcount);
+        br = write(fd, buf, n-bcount); // TODO: why not send()?
         if (br > 0) {
             bcount += br;
             buf += br;

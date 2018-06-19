@@ -27,6 +27,6 @@ set(CMAKE_CXX_FLAGS -pthread)
 ### ex4 ###
 set(WHATSAPP ex4/whatsappServer.cpp ex4/whatsappio.cpp ex4/whatsappClient.cpp ex4/whatsappCommon.h)
 
-add_executable(whatsappSerrver ${WHATSAPP})
+add_executable(whatsappServer ${WHATSAPP})
 
 add_executable(tester ex4/test.cpp)
