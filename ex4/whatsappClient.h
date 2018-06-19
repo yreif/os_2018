@@ -13,6 +13,12 @@
 class WhatsappClient
 {
 public:
+    int sockfd;
+    struct sockaddr_in* servera;
+    struct hostent *hp;
+    unsigned short portnum;
+    char * name;
+
     /**
      * sends request to create a new group named “group_name” with <list_of_client_names> as group members.
      * “group_name” is unique (i.e. no other ​ group or client​ with this name is allowed) and includes only letters and digits.
@@ -20,7 +26,7 @@ public:
      * @param group_name
      * @param clients_group
      */
-    void create_group(const std::string& group_name, const std::vector<std::string>& clients_group);
+    void create_group(const std::string& group_name, const std::vector<std::string>& clients_group, const std::string &command);
 
 
     /**
@@ -29,21 +35,21 @@ public:
      * @param send_to
      * @param message
      */
-    void send(const std::string& send_to, const std::string& message);
+    void send(const std::string& send_to, const std::string& message, const std::string &command);
 
 
     /**
      * Sends a request (to the server) to receive a list of currently connected client names (alphabetically order),
      * separated by comma without spaces.
      */
-    void who();
+    void who(const std::string &command);
 
 
     /**
      * Unregisters the client from the server and removes it from all groups.
      * After the server unregistered the client, the client should print “Unregistered successfully” and then ​exit(0).
      */
-    void exit();
+    void exit_client(const std::string &command);
 
 protected:
     std::vector<std::string> groups;

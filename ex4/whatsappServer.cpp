@@ -35,8 +35,8 @@ void WhatsappServer::createGroup(Client& client, const std::string& groupName,
 }
 
 void WhatsappServer::send(Client& client, const std::string &sendTo, const std::string &message) {
-    if (contains(clients, sendTo)) {
-        if (error(sendData(clients[sendTo], message.c_str(), (int) message.length()), "write")) {
+    if (contains(clients, sendTo)) { //TODO: Hagar changed below for compliance
+        if (error(sendData(clients[sendTo], ("SEND:\n" + name(client) + ": " + message).c_str(), (int) message.length()), "write")) {
             error(sendFailureSignal(fd(client)), "write");
             printSend(true, false, name(client), sendTo, message);
             return;
@@ -128,7 +128,7 @@ void establish(WhatsappServer& server) {
         char myname[MAX_HOSTNAME+1];
 
         /* hostnet initialization */
-        gethostname(myname, MAX_HOSTNAME);
+        gethostname(myname, MAX_HOSTNAME); //TODO: not sure if needed, also need to check and transfer address types.
         server.hp = gethostbyname(myname);
         if (error((server.hp == NULL), "gethostbyname")) return;
 
@@ -189,7 +189,7 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
     }
 
 
-    int main(int argc, char *argv[])
+int main(int argc, char *argv[])
     {
         if (argc != 2) {
             printServerUsage();
@@ -221,15 +221,15 @@ void handleClientRequest(WhatsappServer& server, Client& client) {
                 serverStdInput(server);
             }
             else { // will check each client if it’s in readfds and receive it's message
-                for (auto& client : server.clients) {
-                    if (FD_ISSET(fd(client), &readfds)) {
+                for (auto& client : server.clients)
+                {
+                    if (FD_ISSET(fd(client) ,&readfds))
+                    {
                         handleClientRequest(server, client);
                     }
                 }
             }
-        }
     }
 }
-
 
 

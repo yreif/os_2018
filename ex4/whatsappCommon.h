@@ -14,6 +14,15 @@ static const char NAME_EXISTS = 2;
 static const char FAILURE = 3;
 static const char SERVER_EXIT = 4;
 
+inline bool toUnsignedShort(const char *s, unsigned short& output)
+{
+    if(s != nullptr && ((s[0] == '\0')) || ((!isdigit(s[0])) && (s[0] != '-') && (s[0] != '+'))) return false;
+
+    char * p;
+    output = (unsigned short) strtol(s, &p, 10);
+
+    return (*p == 0);
+}
 
 int receiveData(int fd, char *buf, int n) {
     /* counts bytes read */
@@ -41,7 +50,7 @@ int sendData(int fd, const char *buf, int n) { // TODO: make sure this one is ok
     /* bytes read this pass */
     int br = 0;
     while (bcount < n) { /* loop until full buffer */
-        br = write(fd, buf, n-bcount);
+        br = write(fd, buf, n-bcount); // TODO: why not send()?
         if (br > 0) {
             bcount += br;
             buf += br;
@@ -57,7 +66,6 @@ int sendSuccessSignal(int fd) {
 
 int sendFailureSignal(int fd) {
     return (sendData(fd, &FAILURE, 1) >= 0) ? 0 : -1;
-
 }
 
 int sendNameExistsSignal(int fd) {

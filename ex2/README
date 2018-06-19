@@ -17,7 +17,7 @@ to new input. if it had only one thread, it could be stuck on a task for a lot o
 and the application will effectively be irresponsive.
 A specific example would be managing the tasks of a single tab in a web browser:
 It needs to load the web page (text, images, etc) and present it on the screen,
-allow scripts (js, flash) in the web page to run, and also response to the user's
+allow scripts (js, flash) in the web page to run, and also response to the user'sfd
 clicks and keyboard strokes. It needs to allow add-ons to work, and some need to 
 monitor every new response from the web server. Overall, a web browser needs to
 let a lot of very different activites be "online" all the time.
@@ -34,11 +34,11 @@ User level threads are a reasonable choice for this example for several reasons:
   are just enough).
 
 
-2. Google Chrome's tabs:
+2. Google Chrome'sfd tabs:
 Advantages of processes over kernel-level threads:
 - all of the processes are protected from each other (require os to communicate):
   since different tabs in a browser shouldn't be using the same resources or changing
-  each other's enviroments, this is good for this kind of use: if one tab crashes, it won't
+  each other'sfd enviroments, this is good for this kind of use: if one tab crashes, it won't
   affect the rest.
 - When you close a tab, the process is terminated and its address space on the memory
   is released. If threads are used, the memory is assigned for the whole process,
@@ -47,9 +47,9 @@ Advantages of processes over kernel-level threads:
 
 Disadvantages:
 - all operations require a kernel trap: significant work
-- it's faster to create a new thread than a process
+- it'sfd faster to create a new thread than a process
 - it takes less time to terminate a thread rather than a process
-- it's faster to switch between two threads, as switching between processes has more
+- it'sfd faster to switch between two threads, as switching between processes has more
   overhead.
 
 

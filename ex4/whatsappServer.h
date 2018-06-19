@@ -32,15 +32,7 @@ typedef std::vector<std::string> ClientsList;
 typedef std::vector<std::string> Group;
 typedef std::unordered_map<std::string, Group> Groups;
 
-inline bool toUnsignedShort(const char *s, unsigned short& output)
-{
-    if(s != nullptr && ((s[0] == '\0')) || ((!isdigit(s[0])) && (s[0] != '-') && (s[0] != '+'))) return false;
 
-    char * p;
-    output = (unsigned short) strtol(s, &p, 10);
-
-    return (*p == 0);
-}
 
 inline bool contains(const Clients& clients, const std::string& element) {
     return clients.find(element) != clients.end();
