@@ -1,3 +1,4 @@
+#include <sys/param.h>
 #include "whatsappServer.h"
 #include "whatsappio.h"
 
@@ -36,8 +37,8 @@ void WhatsappServer::createGroup(Client& client, const std::string& groupName,
 
 void WhatsappServer::send(Client& client, const std::string &sendTo, const std::string &message) {
     if (contains(clients, sendTo)) { //TODO: Hagar changed below for compliance
-        if (e(sendData(clients[sendTo], ("SEND:\n" + name(client) + ": " + message).c_str(), (int) message.length()),
-              "write")) {
+        std::string command = "SEND:\n" + name(client) + ": " + message;
+        if (e(sendData(clients[sendTo], command.c_str(), (int) command.length()), "write")) {
             e(sendFailureSignal(fd(client)), "write");
             printSend(true, false, name(client), sendTo, message);
             return;
@@ -65,16 +66,16 @@ void WhatsappServer::send(Client& client, const std::string &sendTo, const std::
 void WhatsappServer::who(Client& client) {
     std::string whoList;
     std::sort(clientsList.begin(), clientsList.end());
-    for (auto const& client : clientsList) {
-        whoList += client;
+    for (auto const& client_name : clientsList) {
+        whoList += client_name;
         whoList += ',';
     }
     printWhoServer(name(client)); // TODO: what is the protocol here?
-    if (e(sendData(fd(client), whoList.c_str(), (int) whoList.length()), "write")) {
-        e(sendFailureSignal(fd(client)), "write");
-    } else {
-        e(sendSuccessSignal(fd(client)), "write");
-    }
+    e(sendData(fd(client), whoList.c_str(), (int) whoList.length()), "write");
+//        e(sendFailureSignal(fd(client)), "write");
+//    } else {
+//        e(sendSuccessSignal(fd(client)), "write");
+//    }
 }
 
 void WhatsappServer::clientExit(Client& client) {
@@ -118,7 +119,7 @@ void serverStdInput(WhatsappServer& server)
     char buf[10];
     std::string serverStdin;
     if (e(receiveData(STDIN_FILENO, buf, 10), "read")) return;
-    serverStdin {buf};
+    serverStdin = std::string(buf);
     if (serverStdin == "EXIT") {
         server.serverExit();
     }  // otherwise, we ignore the input (according to staff)
@@ -126,10 +127,10 @@ void serverStdInput(WhatsappServer& server)
 
 void establish(WhatsappServer& server) {
     {
-        char myname[MAX_HOSTNAME+1];
+        char myname[MAXHOSTNAMELEN+1];
 
         /* hostnet initialization */
-        gethostname(myname, MAX_HOSTNAME); //TODO: not sure if needed, also need to check and transfer address types.
+        gethostname(myname, MAXHOSTNAMELEN); //TODO: not sure if needed, also need to check and transfer address types.
         server.hp = gethostbyname(myname);
         if (e((server.hp == NULL), "gethostbyname")) return;
 

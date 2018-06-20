@@ -13,7 +13,7 @@ int e(int ret, const char *sysCall) {
 
 bool validateName(const std::string &name) {
     char *
-    for (const char &c : ){
+    for (const char &c : name){
         if (std::isalnum(c)==0) {
             return false;
         }

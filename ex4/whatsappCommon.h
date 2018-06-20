@@ -5,9 +5,9 @@
 
 #define NULL_TERMINATOR = '\0'
 // TODO: remove this ^ if we don't use it
-#define MAX_HOSTNAME 30
+//#define MAX_HOSTNAME 64
 #define MAX_PENDING 10
-#define MAX_CLIENTS 30
+#define MAX_CLIENTS 10
 
 static const char SUCCESS = 1;
 static const char NAME_EXISTS = 2;
