@@ -12,13 +12,13 @@ int e(int ret, const char *sysCall) {
 }
 
 bool validateName(const std::string &name) {
-    char *
-    for (const char &c : ){
-        if (std::isalnum(c)==0) {
-            return false;
-        }
-    }
-    return true;
+    return find_if(name.begin(), name.end(), isalnum) == name.end();
+//    for (const char &c : name){ // we need to iterate over the c_str itself
+//        if (std::isalnum(c)==0) {
+//            return false;
+//        }
+//    }
+//    return true;
 }
 
 
@@ -27,25 +27,22 @@ void WhatsappClient::create_group(const std::string &group_name, const std::vect
     if (validateName(group_name)){
         for (int i = 0; i < clients_group.size(); ++i) {
             if (!validateName(clients_group[i])){
-                printInvalidInput();
-                //TODO: validity e
+                printInvalidName();
+                printCreateGroup(false, false, name, group_name);
+                return;
             }
         }
         sendData(sockfd, command.c_str(), int(command.size()));
         char response;
-        if (recv(sockfd, &response, sizeof(response), 0) != 1){
-            //TODO: ERROR
-        }
-
-        switch (response) {
-            case SUCCESS:
-                printCreateGroup(false, true, name, group_name);
-                break;
-            case NAME_EXISTS:
-                printCreateGroup(false, false, name, group_name);
+        e(receiveData(sockfd, &response, sizeof(response)), "read");
+        if (response == SUCCESS) {
+            printCreateGroup(false, true, name, group_name);
+        } else { // FAILURE
+            printCreateGroup(false, false, name, group_name);
         }
     } else {
-        //TODO: validity e
+        printInvalidName();
+        printCreateGroup(false, false, name, group_name);
     }
 }
 //
@@ -55,34 +52,28 @@ void WhatsappClient::send(const std::string &send_to, const std::string &message
         printSend(false, false, name, send_to, message);
         return;
     } else {
-        sendData(sockfd, command.c_str(), int(command.size()));
+        e(sendData(sockfd, command.c_str(), int(command.size())), "write");
         char response;
-        if (recv(sockfd, &response, sizeof(response), 0) != 1){
-            //TODO: ERROR
-        } else {
-            switch (response) {
-                case SUCCESS:
-                    printSend(false, true, name, send_to, message);
-                    break;
-                case FAILURE:
-                    printSend(false, false, name, send_to, message);
-                    break;
-            }
+        e(receiveData(sockfd, &response, sizeof(response)), "read");
+        if (response == SUCCESS) {
+            printSend(false, true, name, send_to, message);
+        } else { // FAILURE
+            printSend(false, false, name, send_to, message);
         }
     }
 }
 //
 void WhatsappClient::who(const std::string &command) {
-    sendData(sockfd, command.c_str(), int(command.size()));
+    e(sendData(sockfd, command.c_str(), int(command.size())), "write");
     char buf[WA_MAX_INPUT];
     e(receiveData(sockfd, buf, WA_MAX_INPUT), "read");
     std::string who {buf};
-    std::cout << who << std::endl; // TODO: do we need endl here? for the newline (or is it already there)
+    std::cout << who; // TODO: make sure during testing that we don't need endl here
 }
 
 
 void WhatsappClient::exit_client(const std::string &command) {
-    sendData(sockfd, command.c_str(), int(command.size()));
+    e(sendData(sockfd, command.c_str(), int(command.size())), "write");
     e(close(sockfd), "close");
     printClientExit(false, name);
     exit(0);
@@ -125,7 +116,6 @@ int initialization(int argc, char *av[], WhatsappClient& client) {
         exit(1);
     }
 }
-// fhe
 
 int main(int argc, char *argv[])
 {
@@ -163,8 +153,7 @@ int main(int argc, char *argv[])
 //                std::istream::get(curr_command, '\n');//TODO: handle this bitch
                 e(receiveData(client.sockfd, buf, WA_MAX_INPUT), "read"); // TODO: change size here to fit needs
                 std::string msg {buf};
-                std::cout << msg << std::endl;
-                printf(curr_command.c_str());
+                printf(msg); // TODO: maybe this prints 2 newline, if so user cout <<
             }
         }
         if (FD_ISSET(STDIN_FILENO, &readfds)) {
