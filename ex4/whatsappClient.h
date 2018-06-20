@@ -14,10 +14,10 @@ class WhatsappClient
 {
 public:
     int sockfd;
-    struct sockaddr_in* servera;
+    struct sockaddr_in* server;
     struct hostent *hp;
     unsigned short portnum;
-    char * name;
+    std::string name;
 
     /**
      * sends request to create a new group named “group_name” with <list_of_client_names> as group members.

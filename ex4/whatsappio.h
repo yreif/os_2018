@@ -106,6 +106,11 @@ void printClientExit(bool server, const std::string &client);
 void printInvalidInput();
 
 /**
+ * Description: Prints to the screen the messages of invalid name (not alpha numeric)
+*/
+void printInvalidName();
+
+/**
  * Description: Prints to the screen the messages of system-call error
 */
 void printError(const std::string &function_name, int error_number);

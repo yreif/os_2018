@@ -105,6 +105,10 @@ void printInvalidInput() {
     printf("ERROR: Invalid input.\n");
 }
 
+void printInvalidName() {
+    printf("ERROR: Invalid client name.\n");
+}
+
 void printError(const std::string &function_name, int error_number) {
     printf("ERROR: %s %d.\n", function_name.c_str(), error_number);
 }
