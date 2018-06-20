@@ -2,6 +2,11 @@
 #define WHATSAPPCOMMON_H
 
 #include <unistd.h>
+#include <cctype>
+#include <cstdlib>
+#include <iostream>
+#include "whatsappio.h"
+
 
 #define NULL_TERMINATOR = '\0'
 // TODO: remove this ^ if we don't use it
@@ -9,14 +14,14 @@
 #define MAX_PENDING 10
 #define MAX_CLIENTS 10
 
-static const char SUCCESS = 1;
-static const char NAME_EXISTS = 2;
-static const char FAILURE = 3;
-static const char SERVER_EXIT = 4;
+static const char SUCCESS = '1';
+static const char NAME_EXISTS = '2';
+static const char FAILURE = '3';
+static const char SERVER_EXIT = '4';
 
 inline bool toUnsignedShort(const char *s, unsigned short& output)
 {
-    if(s != nullptr && ((s[0] == '\0')) || ((!isdigit(s[0])) && (s[0] != '-') && (s[0] != '+'))) return false;
+    if((s != nullptr && s[0] == '\0') || ((!isdigit(s[0]) && s[0] != '-') && (s[0] != '+'))) return false; //TODO: check logix
 
     char * p;
     output = (unsigned short) strtol(s, &p, 10);
@@ -24,31 +29,49 @@ inline bool toUnsignedShort(const char *s, unsigned short& output)
     return (*p == 0);
 }
 
+
 int receiveData(int fd, char *buf, int n) {
+    std::cout << "receive" << "\n";
+    char * orgbuf = buf;
     /* counts bytes read */
     int bcount = 0;
     /* bytes read this pass */
     int br = 0;
+    n = WA_MAX_INPUT;
+
     while (bcount < n) { /* loop until full buffer */
+
         br = read(fd, buf, n-bcount);
+        std::cout << br << "\n";
         if (br > 0) {
+
             bcount += br;
             buf += br;
-            if (buf[bcount] == '\n') {
+            if (orgbuf[bcount] == '\n') {
+
                 return bcount;
             }
         }
         else if ((br == 0) && (bcount >= 0)) return bcount;
         else if (br < 1) return -1;
     }
-    return(bcount);
+
+    return  (bcount);
 }
 
 int sendData(int fd, const char *buf, int n) { // TODO: make sure this one is okay
+    std::cout << "send" << "\n";
+
     /* counts bytes read */
     int bcount = 0;
     /* bytes read this pass */
     int br = 0;
+    std::string b{buf};
+    unsigned int p = WA_MAX_INPUT - b.length();
+    std::string nbuf(p, ' ');
+    nbuf = buf + nbuf;
+    n = WA_MAX_INPUT;
+
     while (bcount < n) { /* loop until full buffer */
         br = write(fd, buf, n-bcount); // TODO: why not send()?
         if (br > 0) {

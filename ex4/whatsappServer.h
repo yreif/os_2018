@@ -21,20 +21,22 @@
 #include <cstdlib>
 #include <bits/unordered_set.h>
 #include <string>
+#include <map>
 
 
 //typedef std::pair<const std::string*, int > ClientDesc;
 //typedef std::unordered_set<ClientDesc*> Group;
 
 typedef std::pair<std::string, int> Client;
-typedef std::unordered_map<std::string, int> Clients;
+typedef std::map<std::string, int> Clients;
 typedef std::vector<std::string> ClientsList;
 typedef std::vector<std::string> Group;
-typedef std::unordered_map<std::string, Group> Groups;
+typedef std::map<std::string, Group> Groups;
 
 
 
 inline bool contains(const Clients& clients, const std::string& element) {
+    clients.find(element);
     return clients.find(element) != clients.end();
 }
 
@@ -64,8 +66,8 @@ void removeGroupDuplicates(Group& group)
 class WhatsappServer {
 public:
     int sockfd;
-    struct sockaddr_in* sa;
-    struct hostent *hp;
+    struct sockaddr_in* sa = nullptr;
+    struct hostent *hp = nullptr;
     unsigned short portnum;
     Clients clients;
     Groups groups;
@@ -80,7 +82,7 @@ public:
      * @param groupName
      * @param clientsGroup
      */
-    void createGroup(Client &client, const std::string &groupName, std::vector<std::string>& clientsGroup);
+    void createGroup(const Client &client, const std::string &groupName, std::vector<std::string> &clientsGroup);
 
 
     /**
@@ -90,21 +92,21 @@ public:
      * @param sendTo
      * @param message
      */
-    void send(Client& client, const std::string& sendTo, const std::string& message);
+    void send(const Client &client, const std::string &sendTo, const std::string &message);
 
 
     /**
      * Returns to socket a list of currently connected client names (alphabetically order),
      * separated by comma without spaces.
      */
-    void who(Client& client);
+    void who(const Client &client);
 
 
     /**
      * Unregisters the client from the server and removes it from all groups.
      * After the server unregistered the client, the client should print “Unregistered successfully” and then ​exit(0).
      */
-    void clientExit(Client &client);
+    void clientExit(const Client &client);
 
     void serverExit();
 };
