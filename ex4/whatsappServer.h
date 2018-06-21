@@ -3,35 +3,15 @@
 
 
 #include "whatsappCommon.h"
-#include <iostream>
 #include <vector>
 #include <algorithm> // for std::find used in vector contains, for std::sort and std::include
-#include <unordered_map>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <cstring>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <netdb.h>
-#include <cstdlib>
-#include <bits/unordered_set.h>
-#include <string>
 #include <map>
-
-
-//typedef std::pair<const std::string*, int > ClientDesc;
-//typedef std::unordered_set<ClientDesc*> Group;
 
 typedef std::pair<std::string, int> Client;
 typedef std::map<std::string, int> Clients;
 typedef std::vector<std::string> ClientsList;
-typedef std::vector<std::string> Group;
-typedef std::map<std::string, Group> Groups;
+typedef std::vector<std::string> GroupUsernames;
+typedef std::map<std::string, GroupUsernames> Groups;
 
 
 
@@ -44,21 +24,22 @@ inline bool contains(const Groups& groups, const std::string& element) {
     return groups.find(element) != groups.end();
 }
 
-inline bool contains(const Group& group, const std::string& element) {
-    return find(group.begin(), group.end(), element) != group.end();
+inline bool contains(const GroupUsernames& groupUsernames, const std::string& element) {
+    return find(groupUsernames.begin(), groupUsernames.end(), element) != groupUsernames.end();
 }
 
-bool subset(Group& group, ClientsList& clientsList) {
-    std::sort(group.begin(), group.end());
+bool subset(GroupUsernames& groupUsernames, ClientsList& clientsList) {
+    std::sort(groupUsernames.begin(), groupUsernames.end());
     std::sort(clientsList.begin(), clientsList.end());
-    return std::includes(group.begin(), group.end(), clientsList.begin(), clientsList.end());
+    return std::includes(clientsList.begin(), clientsList.end(),
+                         groupUsernames.begin(), groupUsernames.end());
 }
 
 inline std::string name(const Client& client) { return client.first; }
 inline int fd(const Client& client) { return client.second; }
 
-void removeGroupDuplicates(Group& group)
-{
+void removeGroupDuplicates(GroupUsernames& group) {
+
     std::sort(group.begin(), group.end());
     group.erase(std::unique(group.begin(), group.end()), group.end());
 }
@@ -72,6 +53,7 @@ public:
     Clients clients;
     Groups groups;
     ClientsList clientsList;
+    fd_set clientsfds;
 
     explicit WhatsappServer(unsigned short portnum);
 

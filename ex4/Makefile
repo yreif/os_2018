@@ -2,6 +2,7 @@ CC=g++
 CFLAGS = -g -std=c++11 -Wall
 
 SRC = whatsappServer.cpp whatsappServer.h whatsappClient.cpp whatsappClient.h whatsappCommon.h whatsappio.cpp whatsappio.h
+
 TAR=tar
 TARFLAGS=-cvf
 TARNAME=ex4.tar
@@ -25,7 +26,8 @@ whatsappServer.o: whatsappServer.cpp whatsappServer.h whatsappio.h whatsappCommo
 whatsappio.o: whatsappio.cpp whatsappio.h
 	$(CC) $(CFLAGS) -c whatsappio.cpp
 
-tar:
-
 clean:
 	$(RM) whatsappClient whatsappServer *.o *~ *core
+
+tar:
+	$(TAR) $(TARFLAGS) $(TARNAME) $(TARSRCS)

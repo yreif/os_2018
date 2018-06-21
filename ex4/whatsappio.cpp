@@ -1,5 +1,4 @@
 #include "whatsappio.h"
-#include <cstdio>
 
 
 
@@ -59,7 +58,7 @@ void printSend(bool server, bool success, const std::string &client,
             printf("%s: \"%s\" was sent successfully to %s.\n",
                    client.c_str(), message.c_str(), name.c_str());
         } else {
-            printf("%s: ERROR: failed to sendData \"%s\" to %s.\n",
+            printf("%s: ERROR: failed to send \"%s\" to %s.\n",
                    client.c_str(), message.c_str(), name.c_str());
         }
     }
@@ -67,7 +66,7 @@ void printSend(bool server, bool success, const std::string &client,
         if(success) {
             printf("Sent successfully.\n");
         } else {
-            printf("ERROR: failed to sendData.\n");
+            printf("ERROR: failed to send.\n");
         }
     }
 }
@@ -105,10 +104,6 @@ void printInvalidInput() {
     printf("ERROR: Invalid input.\n");
 }
 
-void printInvalidName() {
-    printf("ERROR: Invalid client name.\n");
-}
-
 void printError(const std::string &function_name, int error_number) {
     printf("ERROR: %s %d.\n", function_name.c_str(), error_number);
 }
@@ -122,11 +117,15 @@ void parseCommand(const std::string &command, CommandType &commandT,
     name.clear();
     message.clear();
     clients.clear();
-    
+
+    if (command.size() == 0) {
+        commandT = INVALID;
+        return;
+    }
     strcpy(c, command.c_str());
     s = strtok_r(c, " ", &saveptr);
-    
-    if(!strcmp(s, "createGroup")) {
+
+    if(!strcmp(s, "create_group")) {
         commandT = CREATE_GROUP;
         s = strtok_r(NULL, " ", &saveptr);
         if(!s) {
@@ -138,7 +137,7 @@ void parseCommand(const std::string &command, CommandType &commandT,
                 clients.emplace_back(s);
             }
         }
-    } else if(!strcmp(s, "sendData")) {
+    } else if(!strcmp(s, "send")) {
         commandT = SEND;
         s = strtok_r(NULL, " ", &saveptr);
         if(!s) {
@@ -150,7 +149,7 @@ void parseCommand(const std::string &command, CommandType &commandT,
         }
     } else if(!strcmp(s, "who")) {
         commandT = WHO;
-    } else if(!strcmp(s, "serverExit")) {
+    } else if(!strcmp(s, "exit")) {
         commandT = EXIT;
     } else {
         commandT = INVALID;

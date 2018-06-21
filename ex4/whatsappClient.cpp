@@ -7,14 +7,14 @@
 
 int e(int ret, const char *sysCall) {
     if (ret >= 0) return 0;
-    std::cerr << "ERROR: " << sysCall << " " << std::strerror(errno) << ".\n" << std::endl;
+    cerr << "ERROR: " << sysCall << " " << strerror(errno) << ".\n" << endl;
     exit(1);
 }
 
-bool validateName(const std::string &name) {
+bool validateName(const string &name) {
 //    return find_if(name.begin(), name.end(), isalnum) == name.end();
     for (const char &c : name){ // we need to iterate over the c_str itself
-        if (std::isalnum(c)==0) {
+        if (isalnum(c)==0) {
             return false;
         }
     }
@@ -23,126 +23,117 @@ bool validateName(const std::string &name) {
 
 
 
-void WhatsappClient::create_group(const std::string &group_name, const std::vector<std::string> &clients_group, const std::string &command) {
-    if (validateName(group_name)){
-        for (unsigned int i = 0; i < clients_group.size(); ++i) {
-            if (!validateName(clients_group[i])){
-                printInvalidName();
-                printCreateGroup(false, false, name, group_name);
-                return;
-            }
-        }
-        sendData(sockfd, command.c_str(), int(command.size()));
-        char response[WA_MAX_INPUT];
-        e(receiveData(sockfd, response, WA_MAX_INPUT), "read");
-        if (response[0] == SUCCESS) {
-            printCreateGroup(false, true, name, group_name);
-        } else { // FAILURE
-            printCreateGroup(false, false, name, group_name);
-        }
-    } else {
-        printInvalidName();
+void WhatsappClient::create_group(const string &group_name, const vector<string> &clients_group, const string &command) {
+    if (!validateName(group_name)) {
         printCreateGroup(false, false, name, group_name);
+        return;
     }
+    if (group_name == name){
+        printCreateGroup(false, false, name, group_name);
+        return;
+    }
+    for (const auto &i : clients_group) {
+        if (!validateName(i)) {
+            printCreateGroup(false, false, name, group_name);
+            return;
+        }
+    }
+
+    send_data(sockfd, command);
+    string response;
+    e(read_data(sockfd, response), "read");
+    printCreateGroup(false, responseType(response) == SUCCESS, name, group_name);
+
 }
-//
-void WhatsappClient::send(const std::string &send_to, const std::string &message,  const std::string &command) {
-    if (!validateName(send_to)){
-        printInvalidName();
+
+void WhatsappClient::send(const string &send_to, const string &message,  const string &command) {
+    if (!validateName(send_to) || send_to == name){
         printSend(false, false, name, send_to, message);
         return;
-    } else {
-        std::cout << "why2" << "\n";
-
-        e(sendData(sockfd, command.c_str(), int(command.size()) +1), "write");
-        char response[WA_MAX_INPUT];
-        std::cout << "why3" << "\n";
-
-        e(receiveData(sockfd, response, WA_MAX_INPUT + 1), "read");
-
-        std::cout << "why4" << "\n";
-
-
-        if (response[0] == SUCCESS) {
-            printSend(false, true, name, send_to, message);
-        } else { // FAILURE
-            printSend(false, false, name, send_to, message);
-        }
-
     }
-}
-//
-void WhatsappClient::who(const std::string &command) {
-    e(sendData(sockfd, command.c_str(), int(command.size())), "write");
-    char buf[WA_MAX_INPUT];
-    e(receiveData(sockfd, buf, WA_MAX_INPUT), "read");
-    std::string who {buf};
-    std::cout << who; // TODO: make sure during testing that we don't need endl here
+    e(send_data(sockfd, command), "write");
+
+    string response;
+    e(read_data(sockfd, response), "read");
+
+    printSend(false, responseType(response) == SUCCESS, name, send_to, message);
+
 }
 
+void WhatsappClient::who(const string &command) {
+    e(send_data(sockfd, command), "write");
+    string who;
+    e(read_data(sockfd, who), "read");
+    cout << who << endl;
+}
 
-void WhatsappClient::exit_client(const std::string &command) {
-    e(sendData(sockfd, command.c_str(), int(command.size())), "write");
+void WhatsappClient::exit_client(const string &command) {
+    e(send_data(sockfd, command), "write");
     e(close(sockfd), "close");
     printClientExit(false, name);
     exit(0);
 }
 
-
 int initialization(int argc, char *av[], WhatsappClient& client) {
-
+    struct sockaddr_in server;
     if (argc != 4) return -1;
-    client.name = std::string(av[1]);
+    string n(av[1]);
+    client.name = n;
+
     if (!validateName(client.name)) return -1;
-    client.name = std::string(av[1]);
     /* sockaddrr_in initialization */
-    memset(client.server, 0, sizeof(struct sockaddr_in));
+
+    memset(&server, 0, sizeof(struct sockaddr_in));
+
     /* Getting the ip address*/
     struct hostent *hp;
     e(((hp = gethostbyname(av[2])) == nullptr), "gethostbyname");
-    memcpy((char *)&client.server->sin_addr , hp->h_addr , hp->h_length);
-    client.server->sin_family = hp->h_addrtype;
-    client.server->sin_port = htons((u_short)std::stoi(av[3]));
+    memcpy((char *)&server.sin_addr , hp->h_addr , hp->h_length);
+    server.sin_family = hp->h_addrtype;
+    server.sin_port = htons((u_short)stoi(av[3]));
     e(client.sockfd = socket(hp->h_addrtype, SOCK_STREAM, 0), "socket");
 
-    if (connect(client.sockfd, (struct sockaddr *)client.server , sizeof(*client.server)) < 0)
+    if (connect(client.sockfd, (struct sockaddr *)&server , sizeof(server)) < 0)
     {
         printFailedConnection();
         close(client.sockfd);
         exit(1);
     }
-
-    sendData(client.sockfd, (client.name + "\n").c_str(), (int) (client.name + "\n").size());
-    char response[WA_MAX_INPUT];
-    e(receiveData(client.sockfd, response, WA_MAX_INPUT), "read");
-    if (response[0] == SUCCESS) {
-        printConnection();
-        return 0;
-    } else if (response[0] == NAME_EXISTS) {
-        printDupConnection();
-        close(client.sockfd);
-        exit(1);
-    } else {
-        printFailedConnection();
-        close(client.sockfd);
-        exit(1);
+    send_data(client.sockfd, client.name);
+    string response;
+    e(read_data(client.sockfd, response), "read");
+    switch (responseType(response)){
+        case SUCCESS:
+            printConnection();
+            return 0;
+        case NAME_EXISTS:
+            printDupConnection();
+            close(client.sockfd);
+            exit(1);
+        case FAILURE:
+            printFailedConnection();
+            close(client.sockfd);
+            exit(1);
+        case INVALID_RESPONSE:
+            cout << "ERROR\n";
+            exit(1);
     }
+    return 0;
 }
 
+int main(int argc, char *argv[]) {
 
-int main(int argc, char *argv[])
-{
     WhatsappClient client;
     if (initialization(argc, argv, client) < 0) {
         printClientUsage();
         return 0;
     }
 
-    std::string curr_command;
+    string curr_command;
     CommandType commandT;
-    std::string name;
-    std::string message;
-    std::vector<std::string> clients;
+    string name;
+    string message;
+    vector<string> clients;
 
     fd_set clientfds;
     fd_set readfds;
@@ -151,31 +142,32 @@ int main(int argc, char *argv[])
     FD_SET(STDIN_FILENO, &clientfds);
 
     while (true) {
-
+        curr_command.clear();
         readfds = clientfds;
-        (e(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select")); // TODO: why MAX_CLIENTS?
-        char buf[WA_MAX_INPUT]; // TODO: change size here to fit needs
-        // if something happened on the server socket then it's an incoming message or exit process
-        if (FD_ISSET(client.sockfd, &readfds)) {
-//            std::istream::get(curr_command, '\n'); //TODO: handle this bitch
-            e(receiveData(client.sockfd, buf, WA_MAX_INPUT), "read"); // TODO: change size here to fit needs
-            if (!strcmp(curr_command.c_str(), &SERVER_EXIT)){
+        (e(select(MAX_CLIENTS + 1, &readfds, nullptr, nullptr, nullptr), "select"));
+
+        if (FD_ISSET(client.sockfd, &readfds)) /*message from server */
+        {
+            e(read_data(client.sockfd, curr_command), "read");
+
+            if (is_server_exit(curr_command)) /*EXIT from server */{
                 close(client.sockfd);
-                printClientExit(false, name);
+                printClientExit(false, client.name);
                 exit(0);
-            } else if ((!strcmp(curr_command.c_str(), "SEND:\n"))) { // TODO: decide on a protocol
-//                std::istream::get(curr_command, '\n');//TODO: handle this bitch
-                e(receiveData(client.sockfd, buf, WA_MAX_INPUT), "read"); // TODO: change size here to fit needs
-                std::string msg {buf};
-                printf(msg.c_str()); // TODO: maybe this prints 2 newline, if so user cout <<
+                
+            } else if (is_message_from(curr_command)) /*message from other client */ {
+                e(read_data(client.sockfd, curr_command), "read");
+                cout << curr_command << endl;
             }
         }
         else if (FD_ISSET(STDIN_FILENO, &readfds)) {
-            std::cout << "why" << "\n";
-
-//            std::istream::get(curr_command, '\n'); //TODO: handle this bitch
-            std::getline(std::cin, curr_command);
-            parseCommand(curr_command, commandT, name, message, clients);
+            getline(cin, curr_command);
+            try {
+                parseCommand(curr_command, commandT, name, message, clients);
+            } catch (const exception& e) {
+                printInvalidInput();
+                continue;
+            }
 
             switch (commandT) {
                 case CREATE_GROUP:
@@ -196,4 +188,5 @@ int main(int argc, char *argv[])
             }
         }
     }
+    return 0;
 }

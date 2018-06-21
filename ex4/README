@@ -1,0 +1,50 @@
+hagar.dolev, yuval.reif
+Hagar Dolev (309840841), Yuval Reif (308490234)
+EX: 4
+
+FILES:
+whatsappClient.cpp, h -- implementation of a mini whatsapp client.
+whatsappServer.cpp, h -- implementation of a mini whatsapp server.
+whatsappio.cpp, h -- supplied file (slightly modified) with message-printing functions.
+whatsappCommon.h --
+Makefile -- use make to create the library, and tar for creating a tar.
+
+
+=================================
+ANSWERS FOR THEORETICAL QUESTIONS
+=================================
+
+
+1. For adding the command “leave_group <group name>”, we’ll need to change\add the following:
+
+	A.Client side:
+	In the main function we would have added another case (inside switch case) and a new function in
+	the client’s object to handle this command (writing to the server and waiting for it’s response)
+
+	B. Server side:
+	We would have added a case for the parsing, and a function that removes the client from the
+	group. Deleting the group (if empty) will be done in that function.
+
+	C. Common header:
+	We’ll need to decide on a protocol and set a common code for this action.
+
+
+2. We prefer TCP since we can guarantee no loss of information, and since the speed of actions is
+not of top priority while using whatsapp, and the wholeness of information is most important than
+TCP works best.
+Considered that TCP is not considered slow but it is slower than UDP (which might loss information
+on the way). Also in messaging application it is important to keep the order of the messages, and
+TCP assures that, while UDP doesn’t.
+
+3. Applications that use UDP are online streaming of media (for example), or Viber when the speed
+is of high importance. Also, DNS’s protocol use UDP since it has simple communications with
+clients (request for an IP and reply, only).
+
+4. Possible solutions:
+The more obvious one is to have redundancy - a backup server for cases of failure.
+Another option, is to set up a server for each service - meaning, for registration and exiting,
+for sending messages and for queries, where they use shared resources and only the users
+(and groups) details are kept. The last option which we find perhaps simplest is to have
+(not in memory, but logically) an Ethernet mesh type of communications, where each client
+connects directly to other clients, and the protocol is handled in one application
+solely (the whatsappClient).

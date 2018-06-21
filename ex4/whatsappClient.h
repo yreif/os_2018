@@ -14,9 +14,7 @@ class WhatsappClient
 {
 public:
     int sockfd;
-    struct sockaddr_in* server;
-    struct hostent *hp;
-    unsigned short portnum;
+//    struct sockaddr_in* server;
     std::string name;
 
     /**
