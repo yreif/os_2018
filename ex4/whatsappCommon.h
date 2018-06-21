@@ -49,7 +49,7 @@ bool is_server_exit(const string &command) {
 }
 
 bool is_message_from(const string &command) {
-    return (command == SEND_QUE);
+    return (command == "SEND");
 }
 
 int read_data(int socket, string &message) {
@@ -69,14 +69,17 @@ int read_data(int socket, string &message) {
         else if (br < 1) return -1;
     }
     message = string(buf);
+    cout << "i'm reading: " << message << endl;
     return  (bcount);
 }
 
 int send_data(int socket, const string &message) {
+    cout << "i'm writing: " << message << endl;
     char buf[WA_MAX_INPUT + 1] = {0};
     char *bp = buf;
-    memcpy(buf, message.c_str(), message.size());
 
+    memcpy(buf, message.c_str(), message.size());
+    cout << "bp: " << bp << endl;
     /* counts bytes read */
     int bcount = 0;
     /* bytes read this pass */
@@ -86,9 +89,11 @@ int send_data(int socket, const string &message) {
         if (br > 0) {
             bcount += br;
             bp += br;
+            cout << bp << endl;
         }
         if (br < 1) return -1;
     }
+
     return bcount;
 }
 

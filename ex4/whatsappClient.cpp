@@ -149,6 +149,7 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(client.sockfd, &readfds)) /*message from server */
         {
             e(read_data(client.sockfd, curr_command), "read");
+            cout << "msg 1 from server: " << curr_command << endl;
 
             if (is_server_exit(curr_command)) /*EXIT from server */{
                 close(client.sockfd);
@@ -156,7 +157,9 @@ int main(int argc, char *argv[]) {
                 exit(0);
                 
             } else if (is_message_from(curr_command)) /*message from other client */ {
+                curr_command.clear();
                 e(read_data(client.sockfd, curr_command), "read");
+                cout << "msg 2 from server: " << curr_command << endl;
                 cout << curr_command << endl;
             }
         }
