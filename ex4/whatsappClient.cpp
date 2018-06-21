@@ -33,9 +33,9 @@ void WhatsappClient::create_group(const std::string &group_name, const std::vect
             }
         }
         sendData(sockfd, command.c_str(), int(command.size()));
-        char response;
-        e(receiveData(sockfd, &response, sizeof(response)), "read");
-        if (response == SUCCESS) {
+        char response[WA_MAX_INPUT];
+        e(receiveData(sockfd, response, WA_MAX_INPUT), "read");
+        if (response[0] == SUCCESS) {
             printCreateGroup(false, true, name, group_name);
         } else { // FAILURE
             printCreateGroup(false, false, name, group_name);
@@ -55,15 +55,15 @@ void WhatsappClient::send(const std::string &send_to, const std::string &message
         std::cout << "why2" << "\n";
 
         e(sendData(sockfd, command.c_str(), int(command.size()) +1), "write");
-        char response;
+        char response[WA_MAX_INPUT];
         std::cout << "why3" << "\n";
 
-        e(receiveData(sockfd, &response, sizeof(response) + 1), "read");
+        e(receiveData(sockfd, response, WA_MAX_INPUT + 1), "read");
 
         std::cout << "why4" << "\n";
 
 
-        if (response == SUCCESS) {
+        if (response[0] == SUCCESS) {
             printSend(false, true, name, send_to, message);
         } else { // FAILURE
             printSend(false, false, name, send_to, message);
@@ -113,12 +113,12 @@ int initialization(int argc, char *av[], WhatsappClient& client) {
     }
 
     sendData(client.sockfd, (client.name + "\n").c_str(), (int) (client.name + "\n").size());
-    char response;
-    e(receiveData(client.sockfd, &response, sizeof(response)), "read");
-    if (response == SUCCESS) {
+    char response[WA_MAX_INPUT];
+    e(receiveData(client.sockfd, response, WA_MAX_INPUT), "read");
+    if (response[0] == SUCCESS) {
         printConnection();
         return 0;
-    } else if (response == NAME_EXISTS) {
+    } else if (response[0] == NAME_EXISTS) {
         printDupConnection();
         close(client.sockfd);
         exit(1);
@@ -158,14 +158,14 @@ int main(int argc, char *argv[])
         // if something happened on the server socket then it's an incoming message or exit process
         if (FD_ISSET(client.sockfd, &readfds)) {
 //            std::istream::get(curr_command, '\n'); //TODO: handle this bitch
-            e(receiveData(client.sockfd, buf, WA_MAX_INPUT*sizeof(char)), "read"); // TODO: change size here to fit needs
+            e(receiveData(client.sockfd, buf, WA_MAX_INPUT), "read"); // TODO: change size here to fit needs
             if (!strcmp(curr_command.c_str(), &SERVER_EXIT)){
                 close(client.sockfd);
                 printClientExit(false, name);
                 exit(0);
             } else if ((!strcmp(curr_command.c_str(), "SEND:\n"))) { // TODO: decide on a protocol
 //                std::istream::get(curr_command, '\n');//TODO: handle this bitch
-                e(receiveData(client.sockfd, buf, WA_MAX_INPUT*sizeof(char)), "read"); // TODO: change size here to fit needs
+                e(receiveData(client.sockfd, buf, WA_MAX_INPUT), "read"); // TODO: change size here to fit needs
                 std::string msg {buf};
                 printf(msg.c_str()); // TODO: maybe this prints 2 newline, if so user cout <<
             }

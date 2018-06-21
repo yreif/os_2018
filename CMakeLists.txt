@@ -25,8 +25,7 @@ set(CMAKE_CXX_FLAGS -pthread)
 #add_executable(big ${FRAMEWORK} ex3/bigClient.cpp)
 
 ### ex4 ###
-set(WHATSAPP ex4/whatsappServer.cpp ex4/whatsappio.cpp ex4/whatsappClient.cpp ex4/whatsappCommon.h)
-
-add_executable(whatsappServer ${WHATSAPP})
-
-add_executable(tester ex4/test.cpp)
+set(SERV ex4/whatsappServer.cpp ex4/whatsappio.cpp  ex4/whatsappCommon.h)
+set(CLIENT ex4/whatsappClient.cpp ex4/whatsappio.cpp  ex4/whatsappCommon.h)
+add_executable(server ${SERV})
+add_executable(client ${CLIENT})

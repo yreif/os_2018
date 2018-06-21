@@ -106,9 +106,9 @@ void connectNewClient(WhatsappServer& server, fd_set clients_fds)
     if (e(newSocket = accept(server.sockfd, NULL, NULL), "accept")) return;
     FD_SET(newSocket, &clients_fds);
 
-    char buf[WA_MAX_NAME + 1];
+    char buf[WA_MAX_INPUT + 1];
     std::cout << "wen1" << "\n";
-    if (e(receiveData(newSocket, buf, WA_MAX_NAME + 1), "read")) {
+    if (e(receiveData(newSocket, buf, WA_MAX_INPUT + 1), "read")) {
         e(sendFailureSignal(newSocket), "write");
         return;
     }
@@ -120,7 +120,7 @@ void connectNewClient(WhatsappServer& server, fd_set clients_fds)
         sendNameExistsSignal(newSocket);
     } else {
         std::cout << "perhaps2" << "\n";
-
+        std::cout << newClientName.c_str() << "\n";
         server.clients[std::string(newClientName)] = newSocket; //TODO: segfault
         server.clientsList.push_back(newClientName);
         printConnectionServer(newClientName);
@@ -130,9 +130,9 @@ void connectNewClient(WhatsappServer& server, fd_set clients_fds)
 
 void serverStdInput(WhatsappServer& server)
 {
-    char buf[10];
+    char buf[WA_MAX_INPUT];
     std::string serverStdin;
-    if (e(receiveData(STDIN_FILENO, buf, 10), "read")) return;
+    if (e(receiveData(STDIN_FILENO, buf, WA_MAX_INPUT), "read")) return;
     serverStdin = std::string(buf);
     if (serverStdin == "EXIT") {
         server.serverExit();
