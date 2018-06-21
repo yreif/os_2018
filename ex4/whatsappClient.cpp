@@ -115,7 +115,8 @@ int initialization(int argc, char *av[], WhatsappClient& client) {
             close(client.sockfd);
             exit(1);
         case INVALID_RESPONSE:
-            cout << "ERROR\n";
+            printFailedConnection();
+            close(client.sockfd);
             exit(1);
     }
     return 0;
@@ -149,18 +150,14 @@ int main(int argc, char *argv[]) {
         if (FD_ISSET(client.sockfd, &readfds)) /*message from server */
         {
             e(read_data(client.sockfd, curr_command), "read");
-            cout << "msg 1 from server: " << curr_command << endl;
 
             if (is_server_exit(curr_command)) /*EXIT from server */{
                 close(client.sockfd);
                 printClientExit(false, client.name);
                 exit(0);
                 
-            } else if (is_message_from(curr_command)) /*message from other client */ {
-                curr_command.clear();
-                e(read_data(client.sockfd, curr_command), "read");
-                cout << "msg 2 from server: " << curr_command << endl;
-                cout << curr_command << endl;
+            } else if (is_incoming_message(curr_command)) /*message from other client */ {
+                cout << get_incoming_message(curr_command) << endl;
             }
         }
         else if (FD_ISSET(STDIN_FILENO, &readfds)) {

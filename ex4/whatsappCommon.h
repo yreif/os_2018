@@ -22,7 +22,6 @@
 
 #define MAX_PENDING 10
 #define MAX_CLIENTS 10
-#define SEND_QUE "SEND\n"
 
 using namespace std;
 
@@ -45,11 +44,15 @@ Response responseType(const string &response) {
 }
 
 bool is_server_exit(const string &command) {
-    return (command == "server_exit");
+    return (command.substr(0,4) == "EXIT");
 }
 
-bool is_message_from(const string &command) {
-    return (command == "SEND");
+bool is_incoming_message(const string &command) {
+    return (command.substr(0,4) == "SEND");
+}
+
+string get_incoming_message(const string &msg) {
+    return msg.substr(5, msg.size() - 5);
 }
 
 int read_data(int socket, string &message) {
@@ -69,17 +72,14 @@ int read_data(int socket, string &message) {
         else if (br < 1) return -1;
     }
     message = string(buf);
-    cout << "i'm reading: " << message << endl;
     return  (bcount);
 }
 
 int send_data(int socket, const string &message) {
-    cout << "i'm writing: " << message << endl;
     char buf[WA_MAX_INPUT + 1] = {0};
     char *bp = buf;
 
     memcpy(buf, message.c_str(), message.size());
-    cout << "bp: " << bp << endl;
     /* counts bytes read */
     int bcount = 0;
     /* bytes read this pass */
@@ -89,7 +89,6 @@ int send_data(int socket, const string &message) {
         if (br > 0) {
             bcount += br;
             bp += br;
-            cout << bp << endl;
         }
         if (br < 1) return -1;
     }
@@ -120,7 +119,7 @@ int sendNameExistsSignal(int fd) {
 }
 
 int sendExitSignal(int fd) {
-    return send_data(fd, "server_exit");
+    return send_data(fd, "EXIT");
 }
 
 
