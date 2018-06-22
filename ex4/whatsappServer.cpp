@@ -5,7 +5,7 @@
 
 int e(int ret, const char *sysCall) {
     if (ret >= 0) return 0;
-    cerr << "ERROR: " << sysCall << " " << strerror(errno) << ".\n" << endl;
+    cerr << "ERROR: " << sysCall << " " << strerror(errno) << endl;
     return 1;
 }
 
@@ -32,12 +32,9 @@ void WhatsappServer::createGroup(const Client &client, const string &groupName, 
 }
 
 void WhatsappServer::send(const Client &client, const string &sendTo, const string &message) {
-    string command(name(client) + ": " + message);
-    string send_pop(SEND_QUE);
-
-    if (contains(clients, sendTo)) /*Send to 1 client */{
-
-        if (e(send_data(clients[sendTo], send_pop), "write") || e(send_data(clients[sendTo], command), "write")) {
+    string command("SEND " + name(client) + ": " + message);
+    if (contains(clients, sendTo)) /*Send to one client */{
+        if (e(send_data(clients[sendTo], command), "write")) {
             e(sendFailureSignal(fd(client)), "write");
             printSend(true, false, name(client), sendTo, message);
             return;
@@ -47,22 +44,21 @@ void WhatsappServer::send(const Client &client, const string &sendTo, const stri
         printSend(true, true, name(client), sendTo, message);
         
     }
-    else if (contains(groups, sendTo) && contains(groups[sendTo], name(client))) { /*Send to group */
-        
-        for (const auto& clientName : groups[sendTo]) 
-        {
-            if (clientName == name(client)) continue;
-
-            if ((e(send_data(clients[clientName], send_pop), "write") || e(send_data(clients[clientName], command), "write"))) {
-                e(sendFailureSignal(fd(client)), "write");
-                printSend(true, false, name(client), sendTo, message);
-                return;
+    else if (contains(groups, sendTo)) {
+            if (contains(groups[sendTo], name(client))) { /*Send to group */
+                for (const auto& clientName : groups[sendTo])
+                {
+                    if (clientName == name(client)) continue;
+                    if (e(send_data(clients[clientName], command), "write")) {
+                        e(sendFailureSignal(fd(client)), "write");
+                        printSend(true, false, name(client), sendTo, message);
+                        return;
+                    }
+                }
+                e(sendSuccessSignal(fd(client)), "write");
+                printSend(true, true, name(client), sendTo, message);
             }
-        }
-        e(sendSuccessSignal(fd(client)), "write");
-        printSend(true, true, name(client), sendTo, message);
-        
-    } else { // client not in group or sendTo doesn't exist
+    }  else { // client not in group or sendTo doesn't exist
         e(sendFailureSignal(fd(client)), "write");
         printSend(true, false, name(client), sendTo, message);
     }
@@ -210,10 +206,6 @@ int main(int argc, char *argv[]) {
         auto server = WhatsappServer(portnum);
 
         establish(server);
-//        Clients c{};
-//        ClientsList g{};
-//        server.clients = c;
-//        server.clientsList = g;
 
         fd_set readfds{};
         FD_ZERO(&server.clientsfds);
