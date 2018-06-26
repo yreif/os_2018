@@ -41,7 +41,6 @@ inline uint64_t extractBits(uint64_t originalNum, uint64_t numBits, uint64_t sta
 
 inline uint64_t getOffset(uint64_t virtualAddress){
     return extractBits(virtualAddress, OFFSET_WIDTH, 0);
-//    return (1LL << uint64_t((log2(VIRTUAL_MEMORY_SIZE) - log2(PAGE_SIZE)))) & virtualAddress;
 }
 
 inline uint64_t getPageNum(uint64_t virtualAddress) {
@@ -150,8 +149,12 @@ uint64_t chooseFrame(const pathArray& path) {
         return helper.maxFrameIndex + 1;
     }
     /** 3rd priority - choose frame by cyclical distance */
-    PMevict(helper.maxCyclicDistFrame, helper.maxCyclicDistPageNum);
     unlinkFrame(helper.maxCyclicDistFrame, helper.maxCyclicDistParent);
+    if (helper.desiredPageNumber == 25 or helper.maxCyclicDistPageNum == 25)
+    {
+        int a = 0;
+    }
+    PMevict(helper.maxCyclicDistFrame, helper.maxCyclicDistPageNum);
 //    clearTable(helper.maxCyclicDistFrame); - only necessary in tables, since we're going to restore a page here
     return helper.maxCyclicDistFrame;
 }
@@ -304,27 +307,39 @@ uint64_t getPhysicalAddress(uint64_t virtualAddress) {
 //    printVirtual(nextAddress);
 //    /* end of testing prints */
 
-    // first translation
+    // first translation - root
     currAddress = extractBits(pageNum, rootWidth, (TABLES_DEPTH - 1) * OFFSET_WIDTH);
     PMread(currAddress, reinterpret_cast<word_t *>(&nextAddress));
     if (nextAddress == 0)
     {
         chosenFrame = chooseFrame(path);
-        PMwrite(currAddress, reinterpret_cast<word_t>(chosenFrame));
+        PMwrite(currAddress, chosenFrame);
         nextAddress = chosenFrame;
+        /** In actual pages: restore the page we are looking for to chosenFrame  */
+        if (TABLES_DEPTH == 1) PMrestore(chosenFrame ,pageNum); // we've arrived at a page
     }
     path[0] = nextAddress;
 
-    for (int i = 1; i < TABLES_DEPTH - 1; ++i)
+    // rest of tree
+    for (uint64_t i = 1; i < TABLES_DEPTH; ++i)
     {
-        PMread(currAddress * PAGE_SIZE + 1, reinterpret_cast<word_t *>(&nextAddress));
+        currAddress = (nextAddress * PAGE_SIZE)
+                      + extractBits(pageNum, OFFSET_WIDTH, (TABLES_DEPTH - i - 1) * OFFSET_WIDTH);
+        PMread(currAddress, reinterpret_cast<word_t *>(&nextAddress));
         if (nextAddress == 0)
         {
             chosenFrame = chooseFrame(path);
-            PMwrite(currAddress, reinterpret_cast<word_t>(chosenFrame));
-            currAddress = chosenFrame;
+            /** In actual pages: restore the page we are looking for to chosenFrame  */
+            if (i == TABLES_DEPTH - 1) // we've arrived at a page
+            {
+                PMrestore(chosenFrame ,pageNum);
+            }
+            PMwrite(currAddress, chosenFrame);
+            nextAddress = chosenFrame;
         }
+        path[i] = nextAddress;
     }
+    return nextAddress * PAGE_SIZE + offset;
 
 
 //    for (int i = 0; i < TABLES_DEPTH -1; ++i) {
@@ -338,14 +353,18 @@ uint64_t getPhysicalAddress(uint64_t virtualAddress) {
 }
 
 void VMinitialize() {
-    getPhysicalAddress((1LL << (VIRTUAL_ADDRESS_WIDTH - 1)) + 15);
+//    getPhysicalAddress((1LL << (VIRTUAL_ADDRESS_WIDTH - 1)) + 15);
     clearTable(0);
 }
 
 int VMread(uint64_t virtualAddress, word_t* value) {
+    if ((virtualAddress >> VIRTUAL_ADDRESS_WIDTH) != 0) return 0;
+    PMread(getPhysicalAddress(virtualAddress), value);
     return 1;
 }
 
 int VMwrite(uint64_t virtualAddress, word_t value) {
+    if ((virtualAddress >> VIRTUAL_ADDRESS_WIDTH) != 0) return 0;
+    PMwrite(getPhysicalAddress(virtualAddress), value);
     return 1;
 }
