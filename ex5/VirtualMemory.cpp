@@ -96,8 +96,10 @@ bool isFrameEmpty(uint64_t frameIndex){
 }
 
 uint64_t searchFrames(uint64_t currDepth, uint64_t currFrameIndex, uint64_t currParent,
-                      uint64_t currPageNum, const pathArray& path, ChooseFrameHelper& helper) {
+                      uint64_t currPageNum, const pathArray& path, ChooseFrameHelper& helper, int callNumber) {
+//    std::cout << "i'm call #" << callNumber << " and i'm at frame " << currFrameIndex << " while searching for page " << helper.desiredPageNumber << ", my currPageNum is " << currPageNum << std::endl;
     if (isFrameEmpty(currFrameIndex) && notInPath(currFrameIndex, path))
+
     {
         unlinkFrame(currFrameIndex, currParent);
         return currFrameIndex;
@@ -109,6 +111,7 @@ uint64_t searchFrames(uint64_t currDepth, uint64_t currFrameIndex, uint64_t curr
 
     if (currDepth == TABLES_DEPTH) // we've arrived at a page (a leaf)
     {
+//        std::cout << "i'm call #" << callNumber << " and i've reached page " << currPageNum << " which is located at frame " << currFrameIndex << " while searching for page " << helper.desiredPageNumber << std::endl;
         uint64_t currCyclicDist = calcCyclicDist(currPageNum, helper.desiredPageNumber);
         if (currCyclicDist > helper.maxCyclicDist)
         {
@@ -123,6 +126,8 @@ uint64_t searchFrames(uint64_t currDepth, uint64_t currFrameIndex, uint64_t curr
     // otherwise, continue traversing tree:
     word_t curr_val = 0;
     uint64_t nextFrameIndex = 0;
+    uint64_t nextPageNum;
+    currPageNum = currPageNum << OFFSET_WIDTH; /**Calculating the (virtual) page backwards each time */
     for (uint64_t i = 0; i < PAGE_SIZE; ++i)
     {
         PMread(currFrameIndex * PAGE_SIZE + i, &curr_val);
@@ -130,32 +135,49 @@ uint64_t searchFrames(uint64_t currDepth, uint64_t currFrameIndex, uint64_t curr
         if (curr_val != 0)
         {
             nextFrameIndex = searchFrames(currDepth+1, nextFrameIndex, currFrameIndex,
-                                          currPageNum+i, path, helper);
+                                          currPageNum + i, path, helper, callNumber);
             if (nextFrameIndex != 0) return nextFrameIndex;
+
+
+//            if (currDepth < (TABLES_DEPTH - 1))
+//            {
+//                nextFrameIndex = searchFrames(currDepth+1, nextFrameIndex, currFrameIndex,
+//                                              currPageNum + i, path, helper, callNumber);
+//            }
+//            else
+//            {
+//                nextFrameIndex = searchFrames(currDepth+1, nextFrameIndex, currFrameIndex,
+//                                              currPageNum + i, path, helper, callNumber);
+//            }
+
+
         }
     }
 }
 
-uint64_t chooseFrame(const pathArray& path) {
+uint64_t chooseFrame(const pathArray& path, uint64_t desiredPageNumber, int callNumber) {
     ChooseFrameHelper helper = {0};
+    helper.desiredPageNumber = desiredPageNumber;
     /** 1st priority - A frame containing an empty table */
-    uint64_t chosenFrame = searchFrames(0, 0, 0, 0, path, helper);
+    uint64_t chosenFrame = searchFrames(0, 0, 0, 0, path, helper, callNumber);
     if (chosenFrame != 0) return chosenFrame;
 
     /** 2rd priority - An unused frame */
     if (helper.maxFrameIndex + 1 < NUM_FRAMES)
     {
+//        std::cout << "creating new frame at max index " << helper.maxFrameIndex + 1 << " on my way to page " << desiredPageNumber << std::endl;
         clearTable(helper.maxFrameIndex + 1);
         return helper.maxFrameIndex + 1;
     }
     /** 3rd priority - choose frame by cyclical distance */
     unlinkFrame(helper.maxCyclicDistFrame, helper.maxCyclicDistParent);
-    if (helper.desiredPageNumber == 25 or helper.maxCyclicDistPageNum == 25)
+//    std::cout << "evicting page " << helper.maxCyclicDistPageNum << " from frame " << helper.maxCyclicDistFrame << std::endl;
+    if (helper.maxCyclicDistPageNum == 20 && (helper.maxCyclicDistFrame == 12 || helper.maxCyclicDistFrame == 4))
     {
         int a = 0;
     }
     PMevict(helper.maxCyclicDistFrame, helper.maxCyclicDistPageNum);
-//    clearTable(helper.maxCyclicDistFrame); - only necessary in tables, since we're going to restore a page here
+    clearTable(helper.maxCyclicDistFrame); //- only necessary in tables, since we're going to restore a page here
     return helper.maxCyclicDistFrame;
 }
 
@@ -245,8 +267,8 @@ uint64_t chooseFrame(const pathArray& path) {
 //////        uint64_t curr_phys = static_cast<uint64_t>(curr_val);
 ////
 ////        if (curr_val != 0){
-////            curr_page_num = curr_page_num << uint64_t(log2(PAGE_SIZE)); /**Calculating the (virtual) page backwards each time */
-////            curr_page_num += i;
+//            curr_page_num = curr_page_num << uint64_t(log2(PAGE_SIZE)); /**Calculating the (virtual) page backwards each time */
+//            curr_page_num += i;
 ////            find_frameToEvict(pageNumber, avoid, curr_page_num, curr_page, maxparent, max_page, max_cyclic_dist,
 ////                              reinterpret_cast<uint64_t &>(curr_val), curr_depth + 1);
 ////        }
@@ -290,6 +312,7 @@ uint64_t chooseFrame(const pathArray& path) {
 ////}
 
 uint64_t getPhysicalAddress(uint64_t virtualAddress) {
+    int callNumber = 0;
     uint64_t offset = getOffset(virtualAddress);
     uint64_t pageNum = getPageNum(virtualAddress);
     uint64_t currAddress = 0;
@@ -312,7 +335,7 @@ uint64_t getPhysicalAddress(uint64_t virtualAddress) {
     PMread(currAddress, reinterpret_cast<word_t *>(&nextAddress));
     if (nextAddress == 0)
     {
-        chosenFrame = chooseFrame(path);
+        chosenFrame = chooseFrame(path, pageNum, callNumber++);
         PMwrite(currAddress, chosenFrame);
         nextAddress = chosenFrame;
         /** In actual pages: restore the page we are looking for to chosenFrame  */
@@ -328,11 +351,12 @@ uint64_t getPhysicalAddress(uint64_t virtualAddress) {
         PMread(currAddress, reinterpret_cast<word_t *>(&nextAddress));
         if (nextAddress == 0)
         {
-            chosenFrame = chooseFrame(path);
+            chosenFrame = chooseFrame(path, pageNum, callNumber++);
             /** In actual pages: restore the page we are looking for to chosenFrame  */
             if (i == TABLES_DEPTH - 1) // we've arrived at a page
             {
-                PMrestore(chosenFrame ,pageNum);
+//                std::cout << "restoring page " << pageNum << " to frame " << chosenFrame << std::endl;
+                PMrestore(chosenFrame, pageNum);
             }
             PMwrite(currAddress, chosenFrame);
             nextAddress = chosenFrame;
@@ -353,7 +377,6 @@ uint64_t getPhysicalAddress(uint64_t virtualAddress) {
 }
 
 void VMinitialize() {
-//    getPhysicalAddress((1LL << (VIRTUAL_ADDRESS_WIDTH - 1)) + 15);
     clearTable(0);
 }
 
