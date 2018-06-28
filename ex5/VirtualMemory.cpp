@@ -89,7 +89,7 @@ bool isFrameEmpty(uint64_t frameIndex){
 
 uint64_t searchFrames(uint64_t currDepth, uint64_t currFrameIndex, uint64_t currParent,
                       uint64_t currPageNum, const pathArray& path, ChooseFrameHelper& helper) {
-    if (isFrameEmpty(currFrameIndex) && notInPath(currFrameIndex, path))
+    if (currDepth != TABLES_DEPTH && isFrameEmpty(currFrameIndex) && notInPath(currFrameIndex, path))
 
     {
         unlinkFrame(currFrameIndex, currParent);
